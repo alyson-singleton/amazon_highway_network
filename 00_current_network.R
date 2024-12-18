@@ -73,6 +73,7 @@ osm_map
 grip4_roads <- read_sf("~/Desktop/doctorate/ch3 amazon network/data/GRIP4_Region2_vector_shp/GRIP4_region2.shp")
 grip4_roads_brazil <- grip4_roads[which(grip4_roads$GP_RRG == 5),]
 grip4_roads_brazil$GP_RTP <- as.factor(grip4_roads_brazil$GP_RTP)
+st_write(grip4_roads_brazil, "~/Desktop/doctorate/ch3 amazon network/data/GRIP4_Region2_vector_shp/grip4_roads_brazil.shp")
 grip4_roads_brazil <- grip4_roads_brazil[which(grip4_roads_brazil$GP_RTP %in% c('2','3','4')),]
 grip4_roads_brazil_bool <- st_covers(brazil_amazon,grip4_roads_brazil$geometry, sparse = FALSE)
 grip4_roads_brazil_amazon <- grip4_roads_brazil[grip4_roads_brazil_bool[1,],]

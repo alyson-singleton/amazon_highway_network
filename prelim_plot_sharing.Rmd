@@ -6,12 +6,14 @@ output:
   html_document: default
   word_document: default
   pdf_document: default
+editor_options: 
+  chunk_output_type: console
 ---
 ```{r setup, include=FALSE}
 # install packages, load libraries, set themes, knit formatting
 pacman::p_load(tidyverse, dplyr, kableExtra, knitr, sf, raster, terra, spData, tmap, leaflet, ggplot2, spThin, mapdata, rnaturalearth, rnaturalearthdata, brazilmaps, devtools, brazilmaps, mapview, grid, gridExtra, RColorBrewer, raster, plm, fixest, cobalt, broom, ggpubr, gridExtra, cowplot, ggspatial)
 theme_set(theme_bw())
-knitr::opts_chunk$set(echo = F, results='asis', warning=F, message=F, cache=F,
+knitr::opts_chunk$set(echo = F, results=F, warning=F, message=F, cache=T,
                       fig.height=5, fig.width=10)
 
 get_legend<-function(myggplot){
@@ -36,13 +38,104 @@ no_axis <- theme(axis.title=element_blank(),
 ```
 
 ```{r, load region shapefiles}
+# brazil amazon from IBGE
+brazil_amazon <- st_read("~/Desktop/doctorate/ch3 amazon network/data/Limites_Amazonia_Legal_2022_shp/Limites_Amazonia_Legal_2022.shp")
+brazil_amazon$geometry <- st_transform(brazil_amazon$geometry, 4326)
+brazil_amazon_municipalities <- st_read("~/Desktop/doctorate/ch3 amazon network/data/Mun_Amazonia_Legal_2022_shp/Mun_Amazonia_Legal_2022.shp")
+brazil_amazon_municipalities$geometry <- st_transform(brazil_amazon_municipalities$geometry, 4326)
 ```
 
 ```{r, OSM maps}
+osm_amazon_roads <- st_read("~/Desktop/doctorate/ch3 amazon network/data/osm_december/osm_amazon_roads.shp")
+osm_amazon_roads$fclass <- factor(osm_amazon_roads$fclass, levels = c('trunk','primary','secondary', 'tertiary'))
+osm_map <- ggplot() +
+  geom_sf(data = brazil_amazon_municipalities, fill='white', color='lightgrey', size=.15, show.legend = FALSE) +
+  geom_sf(data = brazil_amazon, fill=NA, color='black', size=.15, show.legend = FALSE) +
+  geom_sf(data = osm_amazon_roads, aes(geometry = geometry, color=fclass), linewidth=0.8, show.legend = "line") +
+  scale_color_manual(name="OSM (fclass)", values=c('#6A359CFF','#FFB04FFF','#CD1076FF', '#6497B1FF'),
+                     labels=c('Trunk','Primary','Secondary', 'Tertiary')) +
+  theme_minimal() +
+  no_axis +
+  theme(legend.text=element_text(size=12),
+        legend.title=element_text(size=14),
+        legend.position='right')
+osm_map
 ```
 
 ```{r, GRIP4 maps}
+grip4_roads_brazil_amazon <- st_read("~/Desktop/doctorate/ch3 amazon network/data/GRIP4_Region2_vector_shp/grip4_roads_brazil_amazon.shp")
+
+grip_map_all <- ggplot() +
+  geom_sf(data = brazil_amazon_municipalities, fill='white', color='lightgrey', size=.15, show.legend = FALSE) +
+  geom_sf(data = brazil_amazon, fill=NA, color='black', size=.15, show.legend = FALSE) +
+  geom_sf(data = grip4_roads_brazil_amazon, aes(geometry = geometry, color=GP_RTP), linewidth=0.8, show.legend = "line") +
+  scale_color_manual(name="GRIP4 (fclass)", values=c('#6A359CFF','#FFB04FFF','#CD1076FF'),
+                     labels=c('Primary','Secondary','Tertiary')) +
+  theme_minimal() +
+  no_axis +
+  theme(legend.text=element_text(size=12),
+        legend.title=element_text(size=14),
+        legend.position='right')
+grip_map_all
 ```
 
-```{r, hold}
+```{r}
+grip4_roads_brazil <- st_read("~/Desktop/doctorate/ch3 amazon network/data/GRIP4_Region2_vector_shp/grip4_roads_brazil.shp")
+grip4_roads_brazil_paved <- grip4_roads_brazil[which(grip4_roads_brazil$GP_RSE == 1),]
+grip4_roads_brazil_paved$GP_RTP <- as.factor(grip4_roads_brazil_paved$GP_RTP)
+grip4_roads_brazil_paved_bool <- st_covers(brazil_amazon,grip4_roads_brazil_paved$geometry, sparse = FALSE)
+grip4_roads_brazil_paved_amazon <- grip4_roads_brazil_paved[grip4_roads_brazil_paved_bool[1,],]
+
+# #6497B1FF, #6A359CFF, #FFB04FFF, #679C35FF, #CD1076FF
+grip_map_paved <- ggplot() +
+  geom_sf(data = brazil_amazon_municipalities, fill='white', color='lightgrey', size=.15, show.legend = FALSE) +
+  geom_sf(data = brazil_amazon, fill=NA, color='black', size=.15, show.legend = FALSE) +
+  geom_sf(data = grip4_roads_brazil_paved_amazon, aes(geometry = geometry, color=GP_RTP), linewidth=0.8, show.legend = "line") +
+  scale_color_manual(name="GRIP4 Paved 2018 (fclass)", values=c('#6A359CFF','#FFB04FFF','#CD1076FF'),
+                     labels=c('Primary','Secondary','Tertiary')) +
+  theme_minimal() +
+  no_axis +
+  theme(legend.text=element_text(size=12),
+        legend.title=element_text(size=14),
+        legend.position='right')
+grip_map_paved
+```
+
+```{r, major highways both sources}
+#both major
+grip4_roads_brazil_amazon_primary <- grip4_roads_brazil_amazon[which(grip4_roads_brazil_amazon$GP_RTP %in% c('2')),]
+osm_amazon_roads_trunk <- osm_amazon_roads[which(osm_amazon_roads$fclass == 'trunk'),]
+
+grip_osm_major_map <- ggplot() +
+  geom_sf(data = brazil_amazon_municipalities, fill='white', color='lightgrey', size=.15, show.legend = FALSE) +
+  geom_sf(data = brazil_amazon, fill=NA, color='black', size=.15, show.legend = FALSE) +
+  geom_sf(data = grip4_roads_brazil_amazon_primary, aes(geometry = geometry, color='#CD1076FF'), linewidth=0.8, alpha=0.8, show.legend = "line") +
+  geom_sf(data = osm_amazon_roads_trunk, aes(geometry = geometry, color='#FFB04FFF'), linewidth=0.8, alpha=0.8, show.legend = "line") +
+  scale_color_manual(name="Source", values=c('#CD1076FF','#FFB04FFF'),
+                     labels=c('GRIP4','OSM')) +
+  theme_minimal() +
+  no_axis +
+  theme(legend.text=element_text(size=12),
+        legend.title=element_text(size=14),
+        legend.position='right')
+grip_osm_major_map
+```
+
+```{r, validated major highways both sources}
+#remove from grip4 shapes that dont correspond to a road on gmaps
+shapefiles_to_remove <- c()
+
+grip_osm_major_map <- ggplot() +
+  geom_sf(data = brazil_amazon_municipalities, fill='white', color='lightgrey', size=.15, show.legend = FALSE) +
+  geom_sf(data = brazil_amazon, fill=NA, color='black', size=.15, show.legend = FALSE) +
+  geom_sf(data = grip4_roads_brazil_amazon_primary, aes(geometry = geometry, color='#CD1076FF'), linewidth=0.8, alpha=0.8, show.legend = "line") +
+  geom_sf(data = osm_amazon_roads_trunk, aes(geometry = geometry, color='#FFB04FFF'), linewidth=0.8, alpha=0.8, show.legend = "line") +
+  scale_color_manual(name="Source", values=c('#CD1076FF','#FFB04FFF'),
+                     labels=c('GRIP4','OSM')) +
+  theme_minimal() +
+  no_axis +
+  theme(legend.text=element_text(size=12),
+        legend.title=element_text(size=14),
+        legend.position='right')
+#grip_osm_major_map
 ```
