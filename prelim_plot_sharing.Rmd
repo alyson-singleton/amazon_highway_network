@@ -33,10 +33,6 @@ no_axis <- theme(axis.title=element_blank(),
                  panel.grid.major = element_blank())
 ```
 
-```{r, load road network data from OSM and GRIP4}
-
-```
-
 ```{r, load region shapefiles}
 # brazil amazon from IBGE
 brazil_amazon <- st_read("~/Desktop/doctorate/ch3 amazon network/data/Limites_Amazonia_Legal_2022_shp/Limites_Amazonia_Legal_2022.shp")
@@ -45,9 +41,49 @@ brazil_amazon_municipalities <- st_read("~/Desktop/doctorate/ch3 amazon network/
 brazil_amazon_municipalities$geometry <- st_transform(brazil_amazon_municipalities$geometry, 4326)
 ```
 
-```{r, OSM maps}
+## Figure 1: Major highway network in the Brazilian Amazon
+
+This figure shows the current day major highway network across the Brazilian Amazon. The data used to create this figure was compiled from OpenStreetMap (OSM) and the Global Road Inventory Project (GRIP4). I validated the roads included in this figure by cross-checking with Google Maps Satellite view. These are not yet all paved roads. These are also not all of the roads in the Brazilian Amazon, please see figures below that display regional and local road networks, but rather the set roads I propose including in my study on the impacts of highway construction on dengue transmission.
+
+```{r, validated major highways both sources}
+#remove from grip4 shapes that dont correspond to a road on gmaps
+grip4_roads_brazil_amazon <- st_read("~/Desktop/doctorate/ch3 amazon network/data/GRIP4_Region2_vector_shp/grip4_roads_brazil_amazon.shp")
+grip4_roads_brazil_amazon_primary <- grip4_roads_brazil_amazon[which(grip4_roads_brazil_amazon$GP_RTP %in% c('2')),]
+grip4_roads_brazil_amazon_primary$id <- c(1:dim(grip4_roads_brazil_amazon_primary)[1])
+shapefiles_to_remove <- c(57,220,34,31,104,57,22,102,43,188,29,37,28,27,26,174,96,112,8,9,4,10,113,63,106,260,84,1,22,146,32,40,105,36,190,221,103,83,98,99,97)
+grip4_roads_brazil_amazon_primary <- grip4_roads_brazil_amazon_primary[-shapefiles_to_remove,]
+grip4_roads_brazil_amazon_primary <- grip4_roads_brazil_amazon_primary[which(grip4_roads_brazil_amazon_primary$Shape_Leng > 0.02),]
+
+#add a few non trunk pieces that are connectors
 osm_amazon_roads <- st_read("~/Desktop/doctorate/ch3 amazon network/data/osm_december/osm_amazon_roads.shp")
 osm_amazon_roads$fclass <- factor(osm_amazon_roads$fclass, levels = c('trunk','primary','secondary', 'tertiary'))
+#osm_amazon_roads_trunk <- osm_amazon_roads[which(osm_amazon_roads$fclass == 'trunk'),]
+#osm_amazon_roads_trunk_extras <- rbind(osm_amazon_roads_trunk,osm_amazon_roads[which(osm_amazon_roads$ref %in% c('BR-155','BR-155;PA-155')),])
+
+#frind brazilian national highways as designated by highway number (i.e., ref starts with "BR")
+osm_amazon_roads_ref_br <- osm_amazon_roads[which(substr(osm_amazon_roads$ref,0,2)=="BR"),]
+osm_amazon_roads_ref_br_extras <- rbind(osm_amazon_roads_ref_br,osm_amazon_roads[which(osm_amazon_roads$ref %in% c('PA-150', 'PA-150;PA-475','PA-475','PA-252;PA-475','PA-483','PA-483;PA-150')),])
+osm_amazon_roads_ref_br_extras <- rbind(osm_amazon_roads_ref_br_extras,osm_amazon_roads[which(osm_amazon_roads$ref == 'PA-151' & osm_amazon_roads$fclass=='trunk'),])
+
+grip_osm_validated_map <- ggplot() +
+  geom_sf(data = brazil_amazon_municipalities, fill='white', color='lightgrey', size=.15, show.legend = FALSE) +
+  geom_sf(data = brazil_amazon, fill=NA, color='black', size=.15, show.legend = FALSE) +
+  geom_sf(data = grip4_roads_brazil_amazon_primary, aes(geometry = geometry, color='#CD1076FF'), linewidth=0.8, alpha=0.8, show.legend = "line") +
+  geom_sf(data = osm_amazon_roads_ref_br_extras, aes(geometry = geometry, color='#FFB04FFF'), linewidth=0.8, alpha=0.8, show.legend = "line") +
+  scale_color_manual(name="Source", values=c('#CD1076FF','#FFB04FFF'),
+                     labels=c('GRIP4','OSM')) +
+  theme_minimal() +
+  no_axis +
+  theme(legend.text=element_text(size=12),
+        legend.title=element_text(size=14),
+        legend.position='right')
+grip_osm_validated_map
+```
+
+## Figure 2: Open Street Map roads
+
+```{r, OSM maps}
+#general
 osm_map <- ggplot() +
   geom_sf(data = brazil_amazon_municipalities, fill='white', color='lightgrey', size=.15, show.legend = FALSE) +
   geom_sf(data = brazil_amazon, fill=NA, color='black', size=.15, show.legend = FALSE) +
@@ -62,9 +98,11 @@ osm_map <- ggplot() +
 osm_map
 ```
 
-```{r, GRIP4 maps}
-grip4_roads_brazil_amazon <- st_read("~/Desktop/doctorate/ch3 amazon network/data/GRIP4_Region2_vector_shp/grip4_roads_brazil_amazon.shp")
+## Figure 3: Globel Road Inventory Project (GRIP4) roads
 
+The first plot shows all roads in the Amazon basin, and the second plot shows all roads that GRIP designated as paved as of 2011. Note that some of the roads shown below were removed from Figure 1 after the validation step (i.e., they do not actually exist).
+
+```{r, GRIP4 maps}
 grip_map_all <- ggplot() +
   geom_sf(data = brazil_amazon_municipalities, fill='white', color='lightgrey', size=.15, show.legend = FALSE) +
   geom_sf(data = brazil_amazon, fill=NA, color='black', size=.15, show.legend = FALSE) +
@@ -76,32 +114,43 @@ grip_map_all <- ggplot() +
   theme(legend.text=element_text(size=12),
         legend.title=element_text(size=14),
         legend.position='right')
-grip_map_all
-```
+panela_legend <- get_legend(grip_map_all)
+grip_map_all <- grip_map_all + theme(legend.position = "none")
 
-```{r}
-grip4_roads_brazil <- st_read("~/Desktop/doctorate/ch3 amazon network/data/GRIP4_Region2_vector_shp/grip4_roads_brazil.shp")
-grip4_roads_brazil_paved <- grip4_roads_brazil[which(grip4_roads_brazil$GP_RSE == 1),]
-grip4_roads_brazil_paved$GP_RTP <- as.factor(grip4_roads_brazil_paved$GP_RTP)
-grip4_roads_brazil_paved_bool <- st_covers(brazil_amazon,grip4_roads_brazil_paved$geometry, sparse = FALSE)
-grip4_roads_brazil_paved_amazon <- grip4_roads_brazil_paved[grip4_roads_brazil_paved_bool[1,],]
+grip4_roads_brazil_paved_amazon <- grip4_roads_brazil_amazon[which(grip4_roads_brazil_amazon$GP_RSE == 1),]
+grip4_roads_brazil_paved_amazon$GP_RTP <- as.factor(grip4_roads_brazil_paved_amazon$GP_RTP)
 
 # #6497B1FF, #6A359CFF, #FFB04FFF, #679C35FF, #CD1076FF
 grip_map_paved <- ggplot() +
   geom_sf(data = brazil_amazon_municipalities, fill='white', color='lightgrey', size=.15, show.legend = FALSE) +
   geom_sf(data = brazil_amazon, fill=NA, color='black', size=.15, show.legend = FALSE) +
   geom_sf(data = grip4_roads_brazil_paved_amazon, aes(geometry = geometry, color=GP_RTP), linewidth=0.8, show.legend = "line") +
-  scale_color_manual(name="GRIP4 Paved 2018 (fclass)", values=c('#6A359CFF','#FFB04FFF','#CD1076FF'),
+  scale_color_manual(name="GRIP4 Paved 2011 (fclass)", values=c('#6A359CFF','#FFB04FFF','#CD1076FF'),
                      labels=c('Primary','Secondary','Tertiary')) +
   theme_minimal() +
   no_axis +
   theme(legend.text=element_text(size=12),
         legend.title=element_text(size=14),
         legend.position='right')
-grip_map_paved
+panelb_legend <- get_legend(grip_map_paved)
+grip_map_paved <- grip_map_paved + theme(legend.position = "none")
+
+#####################
+## Fig 2all
+#####################
+
+fig2all <- grid.arrange(grip_map_all, grip_map_paved, panela_legend, panelb_legend,                     
+                        ncol = 2, nrow = 2,
+                        layout_matrix = rbind(c(1,2),c(3,4)), heights=c(4,1))
+
+# fig2all <- as_ggplot(fig2all) +                                
+#   draw_plot_label(label = c("A", "B"), size = 17,
+#                   x = c(0.05, 0.55), y = c(0.95, 0.95)) 
+# 
+# fig2all
 ```
 
-```{r, major highways both sources}
+```{r, major highways both sources, eval=F}
 #both major
 grip4_roads_brazil_amazon_primary <- grip4_roads_brazil_amazon[which(grip4_roads_brazil_amazon$GP_RTP %in% c('2')),]
 osm_amazon_roads_trunk <- osm_amazon_roads[which(osm_amazon_roads$fclass == 'trunk'),]
@@ -121,21 +170,3 @@ grip_osm_major_map <- ggplot() +
 grip_osm_major_map
 ```
 
-```{r, validated major highways both sources}
-#remove from grip4 shapes that dont correspond to a road on gmaps
-shapefiles_to_remove <- c()
-
-grip_osm_major_map <- ggplot() +
-  geom_sf(data = brazil_amazon_municipalities, fill='white', color='lightgrey', size=.15, show.legend = FALSE) +
-  geom_sf(data = brazil_amazon, fill=NA, color='black', size=.15, show.legend = FALSE) +
-  geom_sf(data = grip4_roads_brazil_amazon_primary, aes(geometry = geometry, color='#CD1076FF'), linewidth=0.8, alpha=0.8, show.legend = "line") +
-  geom_sf(data = osm_amazon_roads_trunk, aes(geometry = geometry, color='#FFB04FFF'), linewidth=0.8, alpha=0.8, show.legend = "line") +
-  scale_color_manual(name="Source", values=c('#CD1076FF','#FFB04FFF'),
-                     labels=c('GRIP4','OSM')) +
-  theme_minimal() +
-  no_axis +
-  theme(legend.text=element_text(size=12),
-        legend.title=element_text(size=14),
-        legend.position='right')
-#grip_osm_major_map
-```
