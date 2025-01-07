@@ -80,7 +80,42 @@ grip_osm_validated_map <- ggplot() +
 grip_osm_validated_map
 ```
 
-## Figure 2: Open Street Map roads
+## Figure 2: Major highway projects by number
+
+This map displays the major highway projects (n = 16) in the Amazon (for now determined qualitatively by size), colored by number/name. 
+
+```{r, section by name/project}
+#table(osm_amazon_roads_ref_br_extras$ref)
+osm_amazon_roads_ref_br_extras$first_ref <- substr(as.character(osm_amazon_roads_ref_br_extras$ref), 1, 6)
+osm_ref_freq <- data.frame(table(osm_amazon_roads_ref_br_extras$first_ref)); colnames(osm_ref_freq) <- c("ref","frequency")
+#mapview(osm_amazon_roads_ref_br_extras)
+
+proj_gt130 <- which(osm_amazon_roads_ref_br_extras$first_ref %in% as.character(osm_ref_freq$ref[which(osm_ref_freq$frequency>130)]))
+osm_amazon_roads_ref_br_extras_proj_gt130 <- osm_amazon_roads_ref_br_extras[proj_gt130,]
+
+proj_gt130_map <- ggplot() +
+  geom_sf(data = brazil_amazon_municipalities, fill='white', color='lightgrey', size=.15, show.legend = FALSE) +
+  geom_sf(data = brazil_amazon, fill=NA, color='black', size=.15, show.legend = FALSE) +
+  geom_sf(data = osm_amazon_roads_ref_br_extras_proj_gt130, aes(geometry = geometry, color=first_ref), linewidth=0.8, show.legend = "line") +
+#  scale_color_manual(name="OSM (fclass)", values=c('#6A359CFF','#FFB04FFF','#CD1076FF', '#6497B1FF'),
+#                     labels=c('Trunk','Primary','Secondary', 'Tertiary')) +
+  theme_minimal() +
+  labs(color='Highway No.') +
+  no_axis +
+  theme(legend.text=element_text(size=12),
+        legend.title=element_text(size=14),
+        legend.position='right')
+
+proj_gt130_map
+
+#stor <- osm_amazon_roads_ref_br_extras_proj_gt130
+#mapview(stor, zcol = "first_ref")
+
+```
+
+## Figure 3: Open Street Map roads
+
+This plot shows all national and regional roads in the Amazon basin in the OSM dataset.
 
 ```{r, OSM maps}
 #general
@@ -98,9 +133,9 @@ osm_map <- ggplot() +
 osm_map
 ```
 
-## Figure 3: Globel Road Inventory Project (GRIP4) roads
+## Figure 4: Globel Road Inventory Project (GRIP4) roads
 
-The first plot shows all roads in the Amazon basin, and the second plot shows all roads that GRIP designated as paved as of 2011. Note that some of the roads shown below were removed from Figure 1 after the validation step (i.e., they do not actually exist).
+The first plot shows all roads in the Amazon basin in the GRIP4 dataset, and the second plot shows all roads that GRIP4 designated as paved as of 2011. Note that some of the roads shown below were removed from Figure 1 after the validation step (i.e., they do not actually exist).
 
 ```{r, GRIP4 maps}
 grip_map_all <- ggplot() +
