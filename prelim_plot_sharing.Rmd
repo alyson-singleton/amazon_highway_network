@@ -11,7 +11,7 @@ editor_options:
 ---
 ```{r setup, include=FALSE}
 # install packages, load libraries, set themes, knit formatting
-pacman::p_load(tidyverse, dplyr, kableExtra, knitr, sf, raster, terra, spData, tmap, leaflet, ggplot2, spThin, mapdata, rnaturalearth, rnaturalearthdata, brazilmaps, devtools, brazilmaps, mapview, grid, gridExtra, RColorBrewer, raster, plm, fixest, cobalt, broom, ggpubr, gridExtra, cowplot, ggspatial)
+pacman::p_load(tidyverse, dplyr, kableExtra, knitr, sf, raster, terra, spData, tmap, leaflet, ggplot2, spThin, mapdata, rnaturalearth, rnaturalearthdata, brazilmaps, devtools, brazilmaps, mapview, grid, gridExtra, RColorBrewer, raster, plm, fixest, cobalt, broom, ggpubr, gridExtra, cowplot, ggspatial,pals)
 theme_set(theme_bw())
 knitr::opts_chunk$set(echo = F, results=F, warning=F, message=F, cache=T,
                       fig.height=5, fig.width=10)
@@ -50,7 +50,7 @@ This figure shows the current day major highway network across the Brazilian Ama
 grip4_roads_brazil_amazon <- st_read("~/Desktop/doctorate/ch3 amazon network/data/GRIP4_Region2_vector_shp/grip4_roads_brazil_amazon.shp")
 grip4_roads_brazil_amazon_primary <- grip4_roads_brazil_amazon[which(grip4_roads_brazil_amazon$GP_RTP %in% c('2')),]
 grip4_roads_brazil_amazon_primary$id <- c(1:dim(grip4_roads_brazil_amazon_primary)[1])
-shapefiles_to_remove <- c(57,220,34,31,104,57,22,102,43,188,29,37,28,27,26,174,96,112,8,9,4,10,113,63,106,260,84,1,22,146,32,40,105,36,190,221,103,83,98,99,97)
+shapefiles_to_remove <- c(57,220,34,31,104,57,22,102,43,188,29,37,28,27,26,174,96,112,8,9,4,10,113,63,106,260,84,1,22,146,32,40,105,36,1120,221,103,83,98,99,97)
 grip4_roads_brazil_amazon_primary <- grip4_roads_brazil_amazon_primary[-shapefiles_to_remove,]
 grip4_roads_brazil_amazon_primary <- grip4_roads_brazil_amazon_primary[which(grip4_roads_brazil_amazon_primary$Shape_Leng > 0.02),]
 
@@ -90,28 +90,27 @@ osm_amazon_roads_ref_br_extras$first_ref <- substr(as.character(osm_amazon_roads
 osm_ref_freq <- data.frame(table(osm_amazon_roads_ref_br_extras$first_ref)); colnames(osm_ref_freq) <- c("ref","frequency")
 #mapview(osm_amazon_roads_ref_br_extras)
 
-proj_gt130 <- which(osm_amazon_roads_ref_br_extras$first_ref %in% as.character(osm_ref_freq$ref[which(osm_ref_freq$frequency>130)]))
-osm_amazon_roads_ref_br_extras_proj_gt130 <- osm_amazon_roads_ref_br_extras[proj_gt130,]
+proj_gt120 <- which(osm_amazon_roads_ref_br_extras$first_ref %in% c(as.character(osm_ref_freq$ref[which(osm_ref_freq$frequency>120)]),"BR-155"))
+osm_amazon_roads_ref_br_extras_proj_gt120 <- osm_amazon_roads_ref_br_extras[proj_gt120,]
 
-#colors for n=16
-library(pals)
-pal.bands(tol, n=12)
-# 
-proj_gt130_map <- ggplot() +
+#colors for n=18
+n18_colors <- c(unname(tol())[1],"blue",unname(tol())[2:5], unname(tol())[6], "gold", unname(tol())[7:11], "orange4", "orange", "red", unname(tol())[12], "pink")
+
+proj_gt120_map <- ggplot() +
   geom_sf(data = brazil_amazon_municipalities, fill='white', color='lightgrey', size=.15, show.legend = FALSE) +
   geom_sf(data = brazil_amazon, fill=NA, color='black', size=.15, show.legend = FALSE) +
-  geom_sf(data = osm_amazon_roads_ref_br_extras_proj_gt130, aes(geometry = geometry, color=first_ref), linewidth=0.8, show.legend = "line") +
+  geom_sf(data = osm_amazon_roads_ref_br_extras_proj_gt120, aes(geometry = geometry, color=first_ref), linewidth=0.8, show.legend = "line") +
 #  scale_color_manual(name="OSM (fclass)", values=c('#6A359CFF','#FFB04FFF','#CD1076FF', '#6497B1FF'),
 #                     labels=c('Trunk','Primary','Secondary', 'Tertiary')) +
   theme_minimal() +
-  scale_colour_manual(values=c(unname(tol())[1],"blue",unname(tol())[2:6], "gold", unname(tol())[7:11], "red", unname(tol())[12], "pink")) +
+  scale_colour_manual(values=n18_colors) +
   labs(color='Highway No.') +
   no_axis +
   theme(legend.text=element_text(size=12),
         legend.title=element_text(size=14),
         legend.position='right')
 
-proj_gt130_map
+proj_gt120_map
 
 #stor <- osm_amazon_roads_ref_br_extras_proj_gt130
 #mapview(stor, zcol = "first_ref")

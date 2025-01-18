@@ -1,4 +1,3 @@
-install.packages("sf")
 library(geobr)
 library(sf)
 library(ggplot2)
@@ -21,6 +20,8 @@ brazil_amazon_municipalities$geometry <- st_transform(brazil_amazon_municipaliti
 
 # brazil states from geobr package
 brazil_states = read_state(code_state="all", year=2020)
+brazil_municipalities = read_municipality(code_muni="all", year=2022)
+st_write(brazil_municipalities, "~/Desktop/brazil_municipalities_2020.shp") 
 brazil_states$geom <- st_transform(brazil_states$geom, 4326)
 brazil_states_bool <- st_covers(brazil_amazon,brazil_states$geom, sparse = FALSE)
 brazil_states_amazon <- brazil_states[brazil_states_bool[1,],]
