@@ -41,11 +41,117 @@ brazil_amazon_municipalities <- st_read("~/Desktop/doctorate/ch3 amazon network/
 brazil_amazon_municipalities$geometry <- st_transform(brazil_amazon_municipalities$geometry, 4326)
 ```
 
+
+## Figure 1: Major highway projects by number
+
+This map displays the major highway projects (n = 16) in the Amazon (for now determined qualitatively by size), colored by number/name. 
+
+```{r, section by name/project}
+#add a few non trunk pieces that are connectors
+osm_amazon_roads <- st_read("~/Desktop/doctorate/ch3 amazon network/data/osm_december/osm_amazon_roads.shp")
+osm_amazon_roads$fclass <- factor(osm_amazon_roads$fclass, levels = c('trunk','primary','secondary', 'tertiary'))
+#osm_amazon_roads_trunk <- osm_amazon_roads[which(osm_amazon_roads$fclass == 'trunk'),]
+#osm_amazon_roads_trunk_extras <- rbind(osm_amazon_roads_trunk,osm_amazon_roads[which(osm_amazon_roads$ref %in% c('BR-155','BR-155;PA-155')),])
+
+#frind brazilian national highways as designated by highway number (i.e., ref starts with "BR")
+osm_amazon_roads_ref_br <- osm_amazon_roads[which(substr(osm_amazon_roads$ref,0,2)=="BR"),]
+osm_amazon_roads_ref_br_extras <- rbind(osm_amazon_roads_ref_br,osm_amazon_roads[which(osm_amazon_roads$ref %in% c('PA-150', 'PA-150;PA-475','PA-475','PA-252;PA-475','PA-483','PA-483;PA-150')),])
+osm_amazon_roads_ref_br_extras <- rbind(osm_amazon_roads_ref_br_extras,osm_amazon_roads[which(osm_amazon_roads$ref == 'PA-151' & osm_amazon_roads$fclass=='trunk'),])
+
+#table(osm_amazon_roads_ref_br_extras$ref)
+osm_amazon_roads_ref_br_extras$first_ref <- substr(as.character(osm_amazon_roads_ref_br_extras$ref), 1, 6)
+osm_ref_freq <- data.frame(table(osm_amazon_roads_ref_br_extras$first_ref)); colnames(osm_ref_freq) <- c("ref","frequency")
+#mapview(osm_amazon_roads_ref_br_extras)
+
+proj_gt120 <- which(osm_amazon_roads_ref_br_extras$first_ref %in% c(as.character(osm_ref_freq$ref[which(osm_ref_freq$frequency>120)]),"BR-155"))
+osm_amazon_roads_ref_br_extras_proj_gt120 <- osm_amazon_roads_ref_br_extras[proj_gt120,]
+
+#colors for n=18
+n18_colors <- c(unname(tol())[1],"blue",unname(tol())[2:5], unname(tol())[6], "gold", unname(tol())[7:11], "orange4", "orange", "red", "pink", unname(tol())[12])
+
+proj_gt120_map <- ggplot() +
+  geom_sf(data = brazil_amazon_municipalities, fill='white', color='lightgrey', size=.15, show.legend = FALSE) +
+  geom_sf(data = brazil_amazon, fill=NA, color='black', size=.15, show.legend = FALSE) +
+  geom_sf(data = osm_amazon_roads_ref_br_extras_proj_gt120, aes(geometry = geometry, color=first_ref), linewidth=0.8, show.legend = "line") +
+#  scale_color_manual(name="OSM (fclass)", values=c('#6A359CFF','#FFB04FFF','#CD1076FF', '#6497B1FF'),
+#                     labels=c('Trunk','Primary','Secondary', 'Tertiary')) +
+  theme_minimal() +
+  scale_colour_manual(values=n18_colors) +
+  labs(color='Highway No.') +
+  no_axis +
+  theme(legend.text=element_text(size=12),
+        legend.title=element_text(size=14),
+        legend.position='right')
+
+proj_gt120_map
+
+#stor <- osm_amazon_roads_ref_br_extras_proj_gt130
+#mapview(stor, zcol = "first_ref")
+
+```
+
+## Figure 2: Paving status change from 2013 to 2024
+
+Data posted by Brazil's National Department of Transportation Infrastructure. Very detailed data with shapefiles going back to 2013. Temporal resolution is quarterly back to 2016, with one entry for 2015 and 2013 (none for 2014).
+
+```{r}
+#DNIT 2013
+DNIT_2013 <- st_read("~/Desktop/doctorate/ch3 amazon network/data/DNIT/201301A/ST_DNIT_RODOVIAS_SNV2013_COMPLETO.shp")
+DNIT_2013$geometry <- st_transform(st_zm(DNIT_2013$geometry), 4326)
+DNIT_2013_bool <- st_covers(brazil_amazon,DNIT_2013$geometry, sparse = FALSE)
+DNIT_2013_amazon <- DNIT_2013[DNIT_2013_bool[1,],]
+DNIT_2013_amazon$Superficie <- factor(DNIT_2013_amazon$Superficie, levels = c('N_PAV','PAV','PLA', 'TRV'))
+DNIT_2013_amazon <- DNIT_2013_amazon[which(DNIT_2013_amazon$Superficie %in% c('PAV')),]
+
+#DNIT 2024
+DNIT_2024 <- st_read("~/Desktop/doctorate/ch3 amazon network/data/DNIT/202410A/SNV_202410A.shp")
+DNIT_2024$geometry <- st_transform(st_zm(DNIT_2024$geometry), 4326)
+DNIT_2024_bool <- st_covers(brazil_amazon,DNIT_2024$geometry, sparse = FALSE)
+DNIT_2024_amazon <- DNIT_2024[DNIT_2024_bool[1,],]
+#DNIT_2024_amazon$sg_legenda <- factor(DNIT_2024_amazon$sg_legenda, levels = c('N_PAV','PAV','PLA', 'TRV'))
+DNIT_2024_amazon <- DNIT_2024_amazon[which(DNIT_2024_amazon$sg_legenda %in% c('PAV')),]
+
+DNIT_2013_2024_map <- ggplot() +
+  geom_sf(data = brazil_amazon_municipalities, fill='white', color='lightgrey', size=.15, show.legend = FALSE) +
+  geom_sf(data = brazil_amazon, fill=NA, color='black', size=.15, show.legend = FALSE) +
+  geom_sf(data = DNIT_2024_amazon, aes(geometry = geometry, color='#CD1076FF'), linewidth=0.8, show.legend = "line") +
+  geom_sf(data = DNIT_2013_amazon, aes(geometry = geometry, color='#FFB04FFF'), linewidth=0.8, show.legend = "line") +
+  scale_color_manual(name="Year Paved", values=c('#CD1076FF','#FFB04FFF'),
+                     labels=c('2024','2013')) +
+  theme_minimal() +
+  no_axis +
+  theme(legend.text=element_text(size=12),
+        legend.title=element_text(size=14),
+        legend.position='right')
+DNIT_2013_2024_map
+```
+
+## Figure 3: Paving time series from 2013 to 2024
+
+Same data as above colored by year(ish) of paving.
+
+```{r}
+DNIT_all_years <- st_read("~/Desktop/doctorate/ch3 amazon network/data/DNIT/DNIT_processed.shp")
+#mapview(DNIT_all_years, color=DNIT_all_years$year)
+DNIT_time_map <- ggplot() +
+  geom_sf(data = brazil_amazon_municipalities, fill='white', color='lightgrey', size=.15, show.legend = FALSE) +
+  geom_sf(data = brazil_amazon, fill=NA, color='black', size=.15, show.legend = FALSE) +
+  geom_sf(data = DNIT_all_years, aes(geometry = geometry, color=year), linewidth=0.8, alpha=1, show.legend = 'line') +
+  scale_color_manual(name="Year Paved", values=c('#648FFF', '#785EF0', '#ffc500', '#FF7900','#DC267F'),
+                     labels=c('2013', '2014-2016', '2017-2019', '2020-2022', '2023-2024')) +
+  theme_minimal() +
+  no_axis +
+  theme(legend.text=element_text(size=12),
+        legend.title=element_text(size=14),
+        legend.position='right')
+DNIT_time_map
+```
+
+```{r, validated major highways both sources, eval = F}
 ## Figure 1: Major highway network in the Brazilian Amazon
 
-This figure shows the current day major highway network across the Brazilian Amazon. The data used to create this figure was compiled from OpenStreetMap (OSM) and the Global Road Inventory Project (GRIP4). I validated the roads included in this figure by cross-checking with Google Maps Satellite view. These are not yet all paved roads. These are also not all of the roads in the Brazilian Amazon, please see figures below that display regional and local road networks, but rather the set roads I propose including in my study on the impacts of highway construction on dengue transmission.
+#This figure shows the current day major highway network across the Brazilian Amazon. The data used to create this figure was compiled from OpenStreetMap (OSM) and the Global Road Inventory Project (GRIP4). I validated the roads included in this figure by cross-checking with Google Maps Satellite view. These are not yet all paved roads. These are also not all of the roads in the Brazilian Amazon, please see figures below that display regional and local road networks, but rather the set roads I propose including in my study on the impacts of highway construction on dengue transmission.
 
-```{r, validated major highways both sources}
 #remove from grip4 shapes that dont correspond to a road on gmaps
 grip4_roads_brazil_amazon <- st_read("~/Desktop/doctorate/ch3 amazon network/data/GRIP4_Region2_vector_shp/grip4_roads_brazil_amazon.shp")
 grip4_roads_brazil_amazon_primary <- grip4_roads_brazil_amazon[which(grip4_roads_brazil_amazon$GP_RTP %in% c('2')),]
@@ -80,48 +186,10 @@ grip_osm_validated_map <- ggplot() +
 grip_osm_validated_map
 ```
 
-## Figure 2: Major highway projects by number
-
-This map displays the major highway projects (n = 16) in the Amazon (for now determined qualitatively by size), colored by number/name. 
-
-```{r, section by name/project}
-#table(osm_amazon_roads_ref_br_extras$ref)
-osm_amazon_roads_ref_br_extras$first_ref <- substr(as.character(osm_amazon_roads_ref_br_extras$ref), 1, 6)
-osm_ref_freq <- data.frame(table(osm_amazon_roads_ref_br_extras$first_ref)); colnames(osm_ref_freq) <- c("ref","frequency")
-#mapview(osm_amazon_roads_ref_br_extras)
-
-proj_gt120 <- which(osm_amazon_roads_ref_br_extras$first_ref %in% c(as.character(osm_ref_freq$ref[which(osm_ref_freq$frequency>120)]),"BR-155"))
-osm_amazon_roads_ref_br_extras_proj_gt120 <- osm_amazon_roads_ref_br_extras[proj_gt120,]
-
-#colors for n=18
-n18_colors <- c(unname(tol())[1],"blue",unname(tol())[2:5], unname(tol())[6], "gold", unname(tol())[7:11], "orange4", "orange", "red", unname(tol())[12], "pink")
-
-proj_gt120_map <- ggplot() +
-  geom_sf(data = brazil_amazon_municipalities, fill='white', color='lightgrey', size=.15, show.legend = FALSE) +
-  geom_sf(data = brazil_amazon, fill=NA, color='black', size=.15, show.legend = FALSE) +
-  geom_sf(data = osm_amazon_roads_ref_br_extras_proj_gt120, aes(geometry = geometry, color=first_ref), linewidth=0.8, show.legend = "line") +
-#  scale_color_manual(name="OSM (fclass)", values=c('#6A359CFF','#FFB04FFF','#CD1076FF', '#6497B1FF'),
-#                     labels=c('Trunk','Primary','Secondary', 'Tertiary')) +
-  theme_minimal() +
-  scale_colour_manual(values=n18_colors) +
-  labs(color='Highway No.') +
-  no_axis +
-  theme(legend.text=element_text(size=12),
-        legend.title=element_text(size=14),
-        legend.position='right')
-
-proj_gt120_map
-
-#stor <- osm_amazon_roads_ref_br_extras_proj_gt130
-#mapview(stor, zcol = "first_ref")
-
-```
-
+```{r, OSM maps, eval=F}
 ## Figure 3: Open Street Map roads
+# This plot shows all national and regional roads in the Amazon basin in the OSM dataset.
 
-This plot shows all national and regional roads in the Amazon basin in the OSM dataset.
-
-```{r, OSM maps}
 #general
 osm_map <- ggplot() +
   geom_sf(data = brazil_amazon_municipalities, fill='white', color='lightgrey', size=.15, show.legend = FALSE) +
@@ -137,11 +205,10 @@ osm_map <- ggplot() +
 osm_map
 ```
 
+```{r, GRIP4 maps, eval = F}
 ## Figure 4: Globel Road Inventory Project (GRIP4) roads
+# The first plot shows all roads in the Amazon basin in the GRIP4 dataset, and the second plot shows all roads that GRIP4 designated as paved as of 2011. Note that some of the roads shown below were removed from Figure 1 after the validation step (i.e., they do not actually exist).
 
-The first plot shows all roads in the Amazon basin in the GRIP4 dataset, and the second plot shows all roads that GRIP4 designated as paved as of 2011. Note that some of the roads shown below were removed from Figure 1 after the validation step (i.e., they do not actually exist).
-
-```{r, GRIP4 maps}
 grip_map_all <- ggplot() +
   geom_sf(data = brazil_amazon_municipalities, fill='white', color='lightgrey', size=.15, show.legend = FALSE) +
   geom_sf(data = brazil_amazon, fill=NA, color='black', size=.15, show.legend = FALSE) +
