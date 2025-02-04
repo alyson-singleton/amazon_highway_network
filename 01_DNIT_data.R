@@ -20,19 +20,27 @@ brazil_amazon$geometry <- st_transform(brazil_amazon$geometry, 4326)
 brazil_amazon_municipalities <- st_read("~/Desktop/doctorate/ch3 amazon network/data/Mun_Amazonia_Legal_2022_shp/Mun_Amazonia_Legal_2022.shp")
 brazil_amazon_municipalities$geometry <- st_transform(brazil_amazon_municipalities$geometry, 4326)
 
+# navigable waterways
+waterways <- st_read("~/Desktop/doctorate/ch3 amazon network/data/BaseHidroHidrovias/fc_hidro_hidrovia_antaq.shp")
+waterways$geometry <- st_transform(st_zm(waterways$geometry), 4326)
+waterways_bool <- st_covers(brazil_amazon,waterways$geometry, sparse = FALSE)
+waterways_amazon <- waterways[waterways_bool[1,],]
+mapview(waterways_amazon)
+
 #DNIT 2013
 DNIT_2013 <- st_read("~/Desktop/doctorate/ch3 amazon network/data/DNIT/201301A/ST_DNIT_RODOVIAS_SNV2013_COMPLETO.shp")
 DNIT_2013$geometry <- st_transform(st_zm(DNIT_2013$geometry), 4326)
 DNIT_2013_bool <- st_covers(brazil_amazon,DNIT_2013$geometry, sparse = FALSE)
 DNIT_2013_amazon <- DNIT_2013[DNIT_2013_bool[1,],]
 DNIT_2013_amazon$Superficie <- factor(DNIT_2013_amazon$Superficie, levels = c('N_PAV','PAV','PLA', 'TRV'))
-DNIT_2013_amazon <- DNIT_2013_amazon[which(DNIT_2013_amazon$Superficie %in% c('PAV')),]
-DNIT_2013_amazon_reduced <- data.frame(rep('2013',dim(DNIT_2013_amazon)[1]),DNIT_2013_amazon$geometry); colnames(DNIT_2013_amazon_reduced) <- c('year', 'geometry')
+DNIT_2013_amazon_paved <- DNIT_2013_amazon[which(DNIT_2013_amazon$Superficie %in% c('PAV') | DNIT_2013_amazon$Superfíc_1 %in% c('PAV')),]
+DNIT_2013_amazon_paved_reduced <- data.frame(rep('2013',dim(DNIT_2013_amazon_paved)[1]),DNIT_2013_amazon_paved$geometry); colnames(DNIT_2013_amazon_paved_reduced) <- c('year', 'geometry')
+st_write(DNIT_2013_amazon_paved,"~/Desktop/doctorate/ch3 amazon network/data/DNIT_processed/DNIT_2013_amazon_paved.shp", append=FALSE)
 
 DNIT_2013_map <- ggplot() +
   geom_sf(data = brazil_amazon_municipalities, fill='white', color='lightgrey', size=.15, show.legend = FALSE) +
   geom_sf(data = brazil_amazon, fill=NA, color='black', size=.15, show.legend = FALSE) +
-  geom_sf(data = DNIT_2013_amazon, aes(geometry = geometry), color='#CD1076FF', linewidth=0.8, show.legend = "line") +
+  geom_sf(data = DNIT_2013_amazon_paved, aes(geometry = geometry), color='#CD1076FF', linewidth=0.8, show.legend = "line") +
   #scale_color_manual(name="Surface Type", values=c('#6A359CFF', '#CD1076FF', '#FFB04FFF', '#6497B1FF'),
   #                   labels=c('N_PAV','PAV','PLA', 'TRV')) +
   theme_minimal() +
@@ -48,12 +56,13 @@ DNIT_2024$geometry <- st_transform(st_zm(DNIT_2024$geometry), 4326)
 DNIT_2024_bool <- st_covers(brazil_amazon,DNIT_2024$geometry, sparse = FALSE)
 DNIT_2024_amazon <- DNIT_2024[DNIT_2024_bool[1,],]
 #DNIT_2024_amazon$sg_legenda <- factor(DNIT_2024_amazon$sg_legenda, levels = c('N_PAV','PAV','PLA', 'TRV'))
-DNIT_2024_amazon <- DNIT_2024_amazon[which(DNIT_2024_amazon$sg_legenda %in% c('PAV')),]
-DNIT_2024_amazon_reduced <- data.frame(rep('2024',dim(DNIT_2024_amazon)[1]),DNIT_2024_amazon$geometry); colnames(DNIT_2024_amazon_reduced) <- c('year', 'geometry')
+DNIT_2024_amazon_paved <- DNIT_2024_amazon[which(DNIT_2024_amazon$ds_superfi %in% c('PAV') | DNIT_2024_amazon$sup_est_co %in% c('PAV', 'DUP')),]
+DNIT_2024_amazon_paved_reduced <- data.frame(rep('2024',dim(DNIT_2024_amazon_paved)[1]),DNIT_2024_amazon_paved$geometry); colnames(DNIT_2024_amazon_paved_reduced) <- c('year', 'geometry')
+st_write(DNIT_2024_amazon_paved,"~/Desktop/doctorate/ch3 amazon network/data/DNIT_processed/DNIT_2024_amazon_paved.shp", append=FALSE)
 
 DNIT_2024_map <- ggplot() +
   geom_sf(data = brazil_amazon_municipalities, fill='white', color='lightgrey', size=.15, show.legend = FALSE) +
-  geom_sf(data = brazil_amazon, fill=NA, color='black', size=.15, show.legend = FALSE) +
+  geom_sf(data = brazil_amazon_paved, fill=NA, color='black', size=.15, show.legend = FALSE) +
   geom_sf(data = DNIT_2024_amazon, aes(geometry = geometry), color='#CD1076FF', linewidth=0.8, show.legend = "line") +
   #scale_color_manual(name="Surface Type", values=c('#6A359CFF', '#CD1076FF', '#FFB04FFF', '#6497B1FF'),
   #                   labels=c('N_PAV','PAV','PLA', 'TRV')) +
@@ -68,19 +77,20 @@ DNIT_2024_map
 DNIT_2013_2024_map <- ggplot() +
   geom_sf(data = brazil_amazon_municipalities, fill='white', color='lightgrey', size=.15, show.legend = FALSE) +
   geom_sf(data = brazil_amazon, fill=NA, color='black', size=.15, show.legend = FALSE) +
-  geom_sf(data = DNIT_2022_amazon, aes(geometry = geometry, color='#CD1076FF'), linewidth=0.8, show.legend = "line") +
-  geom_sf(data = DNIT_2013_amazon, aes(geometry = geometry, color='#FFB04FFF'), linewidth=0.8, show.legend = "line") +
+  geom_sf(data = waterways_amazon, fill=NA, color='lightblue3', linewidth=0.7, show.legend = FALSE) +
+  geom_sf(data = DNIT_2024_amazon_paved, aes(geometry = geometry, color='#CD1076FF'), linewidth=0.8, show.legend = "line") +
+  geom_sf(data = DNIT_2013_amazon_paved, aes(geometry = geometry, color='#FFB04FFF'), linewidth=0.8, show.legend = "line") +
   scale_color_manual(name="Year Paved", values=c('#CD1076FF','#FFB04FFF'),
                      labels=c('2024','2013')) +
   theme_minimal() +
-  no_axis +
+  #no_axis +
   theme(legend.text=element_text(size=12),
         legend.title=element_text(size=14),
         legend.position='right')
 DNIT_2013_2024_map
 
-mapview(DNIT_2024_amazon)
-mapview(DNIT_2013_amazon)
+mapview(DNIT_2024_amazon_paved)
+mapview(DNIT_2013_amazon_paved)
 
 #DNIT time series
 #DNIT 2016

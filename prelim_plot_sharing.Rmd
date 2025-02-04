@@ -61,7 +61,7 @@ osm_amazon_roads_ref_br_extras <- rbind(osm_amazon_roads_ref_br_extras,osm_amazo
 #table(osm_amazon_roads_ref_br_extras$ref)
 osm_amazon_roads_ref_br_extras$first_ref <- substr(as.character(osm_amazon_roads_ref_br_extras$ref), 1, 6)
 osm_ref_freq <- data.frame(table(osm_amazon_roads_ref_br_extras$first_ref)); colnames(osm_ref_freq) <- c("ref","frequency")
-#mapview(osm_amazon_roads_ref_br_extras)
+mapview(osm_amazon_roads_ref_br_extras)
 
 proj_gt120 <- which(osm_amazon_roads_ref_br_extras$first_ref %in% c(as.character(osm_ref_freq$ref[which(osm_ref_freq$frequency>120)]),"BR-155"))
 osm_amazon_roads_ref_br_extras_proj_gt120 <- osm_amazon_roads_ref_br_extras[proj_gt120,]
@@ -90,9 +90,51 @@ proj_gt120_map
 
 ```
 
-## Figure 2: Paving status change from 2013 to 2024
+## Figure 2: Paving status change from 2001 to 2024
 
-Data posted by Brazil's National Department of Transportation Infrastructure. Very detailed data with shapefiles going back to 2013. Temporal resolution is quarterly back to 2016, with one entry for 2015 and 2013 (none for 2014).
+Data posted by Brazil's National Department of Transportation Infrastructure. Very detailed data with shapefiles going back to 1994. I only present 2001 to 2024 here because dengue data only goes back to 2001. 2001--2012 is not validated by the Brazilian government and needs some cleaning.
+
+```{r}
+PNV_2001 <- read.csv("~/Desktop/doctorate/ch3 amazon network/data/DNIT_historical/PNV2001_UTF-8.csv", header=T, stringsAsFactors=FALSE)
+PNV_2001 <- PNV_2001[!is.na(PNV_2001$BR),]
+PNV_2001$vl_codigo <- PNV_2001$CODIGO
+
+DNIT_2024 <- st_read("~/Desktop/doctorate/ch3 amazon network/data/DNIT/202410A/SNV_202410A.shp")
+DNIT_2024$geometry <- st_transform(st_zm(DNIT_2024$geometry), 4326)
+
+inner_join <- inner_join(PNV_2001,DNIT_2024, by=c("vl_codigo"))
+joined_sf <- st_as_sf(inner_join)
+joined_sf_bool <- st_covers(brazil_amazon,joined_sf$geometry, sparse = FALSE)
+joined_sf_amazon <- joined_sf[joined_sf_bool[1,],]
+joined_sf_amazon_paved <- joined_sf_amazon[which(joined_sf_amazon$SUPERFICIE == "PAV"),]
+
+#DNIT 2024
+DNIT_2024 <- st_read("~/Desktop/doctorate/ch3 amazon network/data/DNIT/202410A/SNV_202410A.shp")
+DNIT_2024$geometry <- st_transform(st_zm(DNIT_2024$geometry), 4326)
+DNIT_2024_bool <- st_covers(brazil_amazon,DNIT_2024$geometry, sparse = FALSE)
+DNIT_2024_amazon <- DNIT_2024[DNIT_2024_bool[1,],]
+#DNIT_2024_amazon$sg_legenda <- factor(DNIT_2024_amazon$sg_legenda, levels = c('N_PAV','PAV','PLA', 'TRV'))
+DNIT_2024_amazon_paved <- DNIT_2024_amazon[which(DNIT_2024_amazon$ds_superfi %in% c('PAV') | DNIT_2024_amazon$sup_est_co %in% c('PAV', 'DUP')),]
+DNIT_2024_amazon_paved_reduced <- data.frame(rep('2024',dim(DNIT_2024_amazon_paved)[1]),DNIT_2024_amazon_paved$geometry); colnames(DNIT_2024_amazon_paved_reduced) <- c('year', 'geometry')
+
+DNIT_2001_2024_map <- ggplot() +
+  geom_sf(data = brazil_amazon_municipalities, fill='white', color='lightgrey', size=.15, show.legend = FALSE) +
+  geom_sf(data = brazil_amazon, fill=NA, color='black', size=.15, show.legend = FALSE) +
+  geom_sf(data = DNIT_2024_amazon_paved, aes(geometry = geometry, color='#CD1076FF'), linewidth=0.8, show.legend = "line") +
+  geom_sf(data = joined_sf_amazon_paved, aes(geometry = geometry, color='#ffc500'), linewidth=0.8, show.legend = "line") +
+  scale_color_manual(name="Year Paved", values=c('#CD1076FF','#ffc500'),
+                     labels=c('2024','2001')) +
+  theme_minimal() +
+  no_axis +
+  theme(legend.text=element_text(size=12),
+        legend.title=element_text(size=14),
+        legend.position='right')
+DNIT_2001_2024_map
+```
+
+## Figure 3: Paving status change from 2013 to 2024
+
+Cleaned and verified by Brazil's National Department of Transportation Infrastructure.
 
 ```{r}
 #DNIT 2013
@@ -101,7 +143,8 @@ DNIT_2013$geometry <- st_transform(st_zm(DNIT_2013$geometry), 4326)
 DNIT_2013_bool <- st_covers(brazil_amazon,DNIT_2013$geometry, sparse = FALSE)
 DNIT_2013_amazon <- DNIT_2013[DNIT_2013_bool[1,],]
 DNIT_2013_amazon$Superficie <- factor(DNIT_2013_amazon$Superficie, levels = c('N_PAV','PAV','PLA', 'TRV'))
-DNIT_2013_amazon <- DNIT_2013_amazon[which(DNIT_2013_amazon$Superficie %in% c('PAV')),]
+DNIT_2013_amazon_paved <- DNIT_2013_amazon[which(DNIT_2013_amazon$Superficie %in% c('PAV') | DNIT_2013_amazon$Superfíc_1 %in% c('PAV')),]
+DNIT_2013_amazon_paved_reduced <- data.frame(rep('2013',dim(DNIT_2013_amazon_paved)[1]),DNIT_2013_amazon_paved$geometry); colnames(DNIT_2013_amazon_paved_reduced) <- c('year', 'geometry')
 
 #DNIT 2024
 DNIT_2024 <- st_read("~/Desktop/doctorate/ch3 amazon network/data/DNIT/202410A/SNV_202410A.shp")
@@ -109,14 +152,15 @@ DNIT_2024$geometry <- st_transform(st_zm(DNIT_2024$geometry), 4326)
 DNIT_2024_bool <- st_covers(brazil_amazon,DNIT_2024$geometry, sparse = FALSE)
 DNIT_2024_amazon <- DNIT_2024[DNIT_2024_bool[1,],]
 #DNIT_2024_amazon$sg_legenda <- factor(DNIT_2024_amazon$sg_legenda, levels = c('N_PAV','PAV','PLA', 'TRV'))
-DNIT_2024_amazon <- DNIT_2024_amazon[which(DNIT_2024_amazon$sg_legenda %in% c('PAV')),]
+DNIT_2024_amazon_paved <- DNIT_2024_amazon[which(DNIT_2024_amazon$ds_superfi %in% c('PAV') | DNIT_2024_amazon$sup_est_co %in% c('PAV', 'DUP')),]
+DNIT_2024_amazon_paved_reduced <- data.frame(rep('2024',dim(DNIT_2024_amazon_paved)[1]),DNIT_2024_amazon_paved$geometry); colnames(DNIT_2024_amazon_paved_reduced) <- c('year', 'geometry')
 
 DNIT_2013_2024_map <- ggplot() +
   geom_sf(data = brazil_amazon_municipalities, fill='white', color='lightgrey', size=.15, show.legend = FALSE) +
   geom_sf(data = brazil_amazon, fill=NA, color='black', size=.15, show.legend = FALSE) +
-  geom_sf(data = DNIT_2024_amazon, aes(geometry = geometry, color='#CD1076FF'), linewidth=0.8, show.legend = "line") +
-  geom_sf(data = DNIT_2013_amazon, aes(geometry = geometry, color='#FFB04FFF'), linewidth=0.8, show.legend = "line") +
-  scale_color_manual(name="Year Paved", values=c('#CD1076FF','#FFB04FFF'),
+  geom_sf(data = DNIT_2024_amazon_paved, aes(geometry = geometry, color='#CD1076FF'), linewidth=0.8, show.legend = "line") +
+  geom_sf(data = DNIT_2013_amazon_paved, aes(geometry = geometry, color='#ffc500'), linewidth=0.8, show.legend = "line") +
+  scale_color_manual(name="Year Paved", values=c('#CD1076FF','#ffc500'),
                      labels=c('2024','2013')) +
   theme_minimal() +
   no_axis +
@@ -126,18 +170,18 @@ DNIT_2013_2024_map <- ggplot() +
 DNIT_2013_2024_map
 ```
 
-## Figure 3: Paving time series from 2013 to 2024
+## Figure 4: Paving time series from 2013 to 2024
 
 Same data as above colored by year(ish) of paving.
 
 ```{r}
-DNIT_all_years <- st_read("~/Desktop/doctorate/ch3 amazon network/data/DNIT/DNIT_processed.shp")
+DNIT_all_years <- st_read("~/Desktop/doctorate/ch3 amazon network/data/DNIT_processed/DNIT_processed.shp")
 #mapview(DNIT_all_years, color=DNIT_all_years$year)
 DNIT_time_map <- ggplot() +
   geom_sf(data = brazil_amazon_municipalities, fill='white', color='lightgrey', size=.15, show.legend = FALSE) +
   geom_sf(data = brazil_amazon, fill=NA, color='black', size=.15, show.legend = FALSE) +
   geom_sf(data = DNIT_all_years, aes(geometry = geometry, color=year), linewidth=0.8, alpha=1, show.legend = 'line') +
-  scale_color_manual(name="Year Paved", values=c('#648FFF', '#785EF0', '#ffc500', '#FF7900','#DC267F'),
+  scale_color_manual(name="Year Paved", values=c('#ffc500',  '#785EF0', '#648FFF', '#FF7900','#DC267F'),
                      labels=c('2013', '2014-2016', '2017-2019', '2020-2022', '2023-2024')) +
   theme_minimal() +
   no_axis +
@@ -147,7 +191,7 @@ DNIT_time_map <- ggplot() +
 DNIT_time_map
 ```
 
-## Figure 4: Planned highways v current road network
+## Figure 5: Planned highways v current road network
 
 ```{r}
 #DNIT 2024
