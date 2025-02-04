@@ -90,27 +90,33 @@ for (i in 1:length(unique(DNIT_2024_amazon_paved$name))) {
   my_idx_touches <- st_touches(DNIT_2024_int)
   g <- graph.adjlist(my_idx_touches)
   c <- components(g)
-  DNIT_2024_int$groups <- c$membership
-  DNIT_2024_int$name_group <- paste(DNIT_2024_int$name, DNIT_2024_int$groups, sep="")
-  DNIT_2024_amazon_paved[which(DNIT_2024_amazon_paved$name == name),'name_group'] <- DNIT_2024_int$name_group
+  DNIT_2024_int$sections <- c$membership
+  DNIT_2024_int$name_section <- paste(DNIT_2024_int$name, DNIT_2024_int$sections, sep="")
+  DNIT_2024_amazon_paved[which(DNIT_2024_amazon_paved$name == name),'name_section'] <- DNIT_2024_int$name_section
 }
 
-#loop to create new dataset with unioned sections by name
-DNIT_2024_unions_list = vector("list", length = length(unique(DNIT_2024_amazon_paved$name_group)))
+#loop to create new dataset with unioned sections by name_section
+DNIT_2024_unions_list = vector("list", length = length(unique(DNIT_2024_amazon_paved$name_section)))
 
-for (i in 1:length(unique(DNIT_2024_amazon_paved$name_group))) {
+for (i in 1:length(unique(DNIT_2024_amazon_paved$name_section))) {
   print(i)
-  name_group_i <- unique(DNIT_2024_amazon_paved$name_group)[i]
-  DNIT_2024_int <- DNIT_2024_amazon_paved[which(DNIT_2024_amazon_paved$name_group == name_group_i),]
+  name_section_i <- unique(DNIT_2024_amazon_paved$name_section)[i]
+  DNIT_2024_int <- DNIT_2024_amazon_paved[which(DNIT_2024_amazon_paved$name_section == name_section_i),]
   DNIT_2024_int_geom <- st_as_sf(DNIT_2024_int) %>%
     st_combine() %>%
     st_line_merge() %>%
     st_as_sf()
-  #add way to tell length
   DNIT_2024_int_one <- DNIT_2024_int[which(DNIT_2024_int$vl_extensa == max(DNIT_2024_int$vl_extensa)),]
   DNIT_2024_int_one[,"geometry"] <- DNIT_2024_int_geom
   DNIT_2024_unions_list[[i]] <- DNIT_2024_int_one
 }
 
 DNIT_2024_unions <- do.call(rbind, DNIT_2024_unions_list)
-mapview(DNIT_2024_unions, zcol="name_group")
+mapview(DNIT_2024_unions, zcol="name_section")
+
+#link unions to lengths
+DNIT_2024_amazon_paved_lengths <- DNIT_2024_amazon_paved %>%
+  group_by(name_section) %>%
+  summarize(length = sum(vl_extensa))
+DNIT_2024_amazon_paved_lengths <- DNIT_2024_amazon_paved_lengths[,c(1:2)]
+DNIT_2024_unions_lengths <- full_join(DNIT_2024_unions, DNIT_2024_amazon_paved_lengths)
