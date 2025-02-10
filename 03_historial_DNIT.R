@@ -14,6 +14,7 @@ joined_sf <- st_as_sf(inner_join)
 joined_sf_bool <- st_covers(brazil_amazon,joined_sf$geometry, sparse = FALSE)
 joined_sf_amazon <- joined_sf[joined_sf_bool[1,],]
 joined_sf_amazon_paved <- joined_sf_amazon[which(joined_sf_amazon$SUPERFICIE == "PAV"),]
+DNIT_2001_amazon_paved <- joined_sf_amazon_paved
 
 mapview(joined_sf_amazon)
 mapview(joined_sf_amazon_paved)
@@ -83,40 +84,107 @@ mapview(DNIT_2024_242BMT)
 ########################################
 
 #build loop to make unique names when linestrings don't touch
-for (i in 1:length(unique(DNIT_2024_amazon_paved$name))) {
+DNIT_year_amazon_paved <- DNIT_2001_amazon_paved
+DNIT_year_amazon_paved$name <- substr(DNIT_year_amazon_paved$vl_codigo,1,6)
+for (i in 1:length(unique(DNIT_year_amazon_paved$name))) {
   print(i)
-  name <- unique(DNIT_2024_amazon_paved$name)[i]
-  DNIT_2024_int <- DNIT_2024_amazon_paved[which(DNIT_2024_amazon_paved$name == name),]
-  my_idx_touches <- st_touches(DNIT_2024_int)
+  name <- unique(DNIT_year_amazon_paved$name)[i]
+  DNIT_year_int <- DNIT_year_amazon_paved[which(DNIT_year_amazon_paved$name == name),]
+  my_idx_touches <- st_touches(DNIT_year_int)
   g <- graph.adjlist(my_idx_touches)
   c <- components(g)
-  DNIT_2024_int$sections <- c$membership
-  DNIT_2024_int$name_section <- paste(DNIT_2024_int$name, DNIT_2024_int$sections, sep="")
-  DNIT_2024_amazon_paved[which(DNIT_2024_amazon_paved$name == name),'name_section'] <- DNIT_2024_int$name_section
+  DNIT_year_int$sections <- c$membership
+  DNIT_year_int$name_section <- paste(DNIT_year_int$name, DNIT_year_int$sections, sep="")
+  DNIT_year_amazon_paved[which(DNIT_year_amazon_paved$name == name),'name_section'] <- DNIT_year_int$name_section
 }
 
 #loop to create new dataset with unioned sections by name_section
-DNIT_2024_unions_list = vector("list", length = length(unique(DNIT_2024_amazon_paved$name_section)))
+DNIT_year_unions_list = vector("list", length = length(unique(DNIT_year_amazon_paved$name_section)))
 
-for (i in 1:length(unique(DNIT_2024_amazon_paved$name_section))) {
+for (i in 1:length(unique(DNIT_year_amazon_paved$name_section))) {
   print(i)
-  name_section_i <- unique(DNIT_2024_amazon_paved$name_section)[i]
-  DNIT_2024_int <- DNIT_2024_amazon_paved[which(DNIT_2024_amazon_paved$name_section == name_section_i),]
-  DNIT_2024_int_geom <- st_as_sf(DNIT_2024_int) %>%
+  name_section_i <- unique(DNIT_year_amazon_paved$name_section)[i]
+  DNIT_year_int <- DNIT_year_amazon_paved[which(DNIT_year_amazon_paved$name_section == name_section_i),]
+  DNIT_year_int_geom <- st_as_sf(DNIT_year_int) %>%
     st_combine() %>%
     st_line_merge() %>%
     st_as_sf()
-  DNIT_2024_int_one <- DNIT_2024_int[which(DNIT_2024_int$vl_extensa == max(DNIT_2024_int$vl_extensa)),]
-  DNIT_2024_int_one[,"geometry"] <- DNIT_2024_int_geom
-  DNIT_2024_unions_list[[i]] <- DNIT_2024_int_one
+  DNIT_year_int_one <- DNIT_year_int[which(DNIT_year_int$vl_extensa == max(DNIT_year_int$vl_extensa)),]
+  DNIT_year_int_one[,"geometry"] <- DNIT_year_int_geom
+  DNIT_year_unions_list[[i]] <- DNIT_year_int_one
 }
 
-DNIT_2024_unions <- do.call(rbind, DNIT_2024_unions_list)
-mapview(DNIT_2024_unions, zcol="name_section")
+DNIT_year_unions <- do.call(rbind, DNIT_year_unions_list)
+mapview(DNIT_year_unions, zcol="name")
 
-#link unions to lengths
-DNIT_2024_amazon_paved_lengths <- DNIT_2024_amazon_paved %>%
-  group_by(name_section) %>%
-  summarize(length = sum(vl_extensa))
-DNIT_2024_amazon_paved_lengths <- DNIT_2024_amazon_paved_lengths[,c(1:2)]
-DNIT_2024_unions_lengths <- full_join(DNIT_2024_unions, DNIT_2024_amazon_paved_lengths)
+DNIT_2001_amazon_paved <- DNIT_year_amazon_paved
+DNIT_2001_unions <- DNIT_year_unions
+
+st_write(DNIT_2001_unions, "~/Desktop/DNIT_2001_unions.shp")
+st_write(DNIT_2024_unions, "~/Desktop/DNIT_2024_unions.shp")
+         
+#link unions to lengths **this currently isn't working**
+#DNIT_2024_amazon_paved_lengths <- DNIT_2024_amazon_paved %>%
+#  group_by(name_section) %>%
+#  summarize(length = sum(vl_extensa))
+#DNIT_2024_amazon_paved_lengths <- DNIT_2024_amazon_paved_lengths[,c(1:2)]
+#DNIT_2024_unions_lengths <- st_join(DNIT_2024_unions, DNIT_2024_amazon_paved_lengths, )
+
+# difference tests
+mapview(DNIT_2001_unions)
+mapview(DNIT_2024_unions)
+
+test <- st_difference(DNIT_2024_unions[which(DNIT_2024_unions$name=="319BRO"),],
+                      DNIT_2001_unions[which(DNIT_2001_unions$name=="319BRO"),][1,])
+mapview(test)
+mapview(DNIT_2024_unions[which(DNIT_2024_unions$name=="364BAC"),])
+mapview(DNIT_2001_unions[which(DNIT_2001_unions$name=="364BAC"),])
+
+# difference loop
+# *NOTE* find a way to fix missing sections in 2001 later, for now just run as is
+DNIT_year1_amazon_paved <- DNIT_2024_unions
+DNIT_year2_amazon_paved <- DNIT_2001_unions
+#difference_geoms <- list()
+sf_object <- st_sf(id = integer(), geometry = st_sfc(), crs = 4326)
+sf_object <- st_transform(sf_object,32633)
+
+i=102
+for (i in 1:length(unique(DNIT_year1_amazon_paved$name_section))) {
+  print(i)
+  name_section_i <- unique(DNIT_year1_amazon_paved$name_section)[i]
+  DNIT_year_int_i <- DNIT_year1_amazon_paved[which(DNIT_year1_amazon_paved$name_section == name_section_i),]
+  name_i <- DNIT_year1_amazon_paved[which(DNIT_year1_amazon_paved$name_section == name_section_i),'name'] %>% 
+    st_drop_geometry() %>% 
+    first()
+  name_i <- name_i[1,1]
+  DNIT_year2_amazon_paved_matching_name <- DNIT_year2_amazon_paved[which(DNIT_year2_amazon_paved$name == name_i),]
+  if(dim(DNIT_year2_amazon_paved_matching_name)[1]>0){
+    for (j in 1:length(unique(DNIT_year2_amazon_paved_matching_name$name_section))) {
+      #print(j)  
+      name_section_j <- unique(DNIT_year2_amazon_paved_matching_name$name_section)[j]
+      DNIT_year_int_j <- DNIT_year2_amazon_paved_matching_name[which(DNIT_year2_amazon_paved_matching_name$name_section == name_section_j),]
+      DNIT_year_int_i <- st_transform(DNIT_year_int_i, 32633)
+      DNIT_year_int_j <- st_transform(DNIT_year_int_j, 32633)
+      if(!is.na(st_is_valid(DNIT_year_int_j))){
+        if(dim(st_intersects(DNIT_year_int_i,DNIT_year_int_j))[1]>0){
+          #test <- st_difference(st_snap(DNIT_year_int_i, DNIT_year_int_j, tolerance = 0.0001))
+          DNIT_year_int_i <- st_difference(DNIT_year_int_i, DNIT_year_int_j)
+          #mapview(test)
+        }
+      }
+    }
+  }
+  if(dim(DNIT_year_int_i)[1]>0){
+    new_feature <- st_sf(id = i, geometry = DNIT_year_int_i$geometry)
+    new_feature_transform <- st_transform(new_feature, 32633)
+    sf_object <- rbind(sf_object, new_feature_transform)
+  }
+}
+mapview(sf_object)
+
+#sf_object$lengths <- st_length(sf_object)
+sf_object$geometry <- st_cast(sf_object$geometry, "MULTILINESTRING")
+sf_object$num_lines <- sapply(st_geometry(sf_object), function(x) length(x))
+sf_object_large_lines <- sf_object[which(sf_object$num_lines<10),]
+mapview(sf_object_large_lines)
+mapview(sf_object,zcol="num_lines")
