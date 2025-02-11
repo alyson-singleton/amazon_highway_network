@@ -133,7 +133,6 @@ st_write(DNIT_2024_unions, "~/Desktop/DNIT_2024_unions.shp")
 # difference tests
 mapview(DNIT_2001_unions)
 mapview(DNIT_2024_unions)
-
 test <- st_difference(DNIT_2024_unions[which(DNIT_2024_unions$name=="319BRO"),],
                       DNIT_2001_unions[which(DNIT_2001_unions$name=="319BRO"),][1,])
 mapview(test)
@@ -144,11 +143,10 @@ mapview(DNIT_2001_unions[which(DNIT_2001_unions$name=="364BAC"),])
 # *NOTE* find a way to fix missing sections in 2001 later, for now just run as is
 DNIT_year1_amazon_paved <- DNIT_2024_unions
 DNIT_year2_amazon_paved <- DNIT_2001_unions
-#difference_geoms <- list()
-sf_object <- st_sf(id = integer(), geometry = st_sfc(), crs = 4326)
-sf_object <- st_transform(sf_object,32633)
 
-i=102
+difference_geoms <- st_sf(id = integer(), geometry = st_sfc(), crs = 4326)
+difference_geoms <- st_transform(difference_geoms,32633)
+
 for (i in 1:length(unique(DNIT_year1_amazon_paved$name_section))) {
   print(i)
   name_section_i <- unique(DNIT_year1_amazon_paved$name_section)[i]
@@ -160,16 +158,13 @@ for (i in 1:length(unique(DNIT_year1_amazon_paved$name_section))) {
   DNIT_year2_amazon_paved_matching_name <- DNIT_year2_amazon_paved[which(DNIT_year2_amazon_paved$name == name_i),]
   if(dim(DNIT_year2_amazon_paved_matching_name)[1]>0){
     for (j in 1:length(unique(DNIT_year2_amazon_paved_matching_name$name_section))) {
-      #print(j)  
       name_section_j <- unique(DNIT_year2_amazon_paved_matching_name$name_section)[j]
       DNIT_year_int_j <- DNIT_year2_amazon_paved_matching_name[which(DNIT_year2_amazon_paved_matching_name$name_section == name_section_j),]
       DNIT_year_int_i <- st_transform(DNIT_year_int_i, 32633)
       DNIT_year_int_j <- st_transform(DNIT_year_int_j, 32633)
       if(!is.na(st_is_valid(DNIT_year_int_j))){
         if(dim(st_intersects(DNIT_year_int_i,DNIT_year_int_j))[1]>0){
-          #test <- st_difference(st_snap(DNIT_year_int_i, DNIT_year_int_j, tolerance = 0.0001))
           DNIT_year_int_i <- st_difference(DNIT_year_int_i, DNIT_year_int_j)
-          #mapview(test)
         }
       }
     }
@@ -177,14 +172,29 @@ for (i in 1:length(unique(DNIT_year1_amazon_paved$name_section))) {
   if(dim(DNIT_year_int_i)[1]>0){
     new_feature <- st_sf(id = i, geometry = DNIT_year_int_i$geometry)
     new_feature_transform <- st_transform(new_feature, 32633)
-    sf_object <- rbind(sf_object, new_feature_transform)
+    difference_geoms <- rbind(difference_geoms, new_feature_transform)
   }
 }
-mapview(sf_object)
+mapview(difference_geoms)
+st_write(difference_geoms, "~/Desktop/doctorate/ch3 amazon network/data/DNIT_processed/DNIT_2001_2024_differences.shp")
 
-#sf_object$lengths <- st_length(sf_object)
-sf_object$geometry <- st_cast(sf_object$geometry, "MULTILINESTRING")
-sf_object$num_lines <- sapply(st_geometry(sf_object), function(x) length(x))
-sf_object_large_lines <- sf_object[which(sf_object$num_lines<10),]
-mapview(sf_object_large_lines)
-mapview(sf_object,zcol="num_lines")
+#difference_geoms$lengths <- st_length(difference_geoms)
+difference_geoms$geometry <- st_cast(difference_geoms$geometry, "MULTILINESTRING")
+difference_geoms$num_lines <- sapply(st_geometry(difference_geoms), function(x) length(x))
+difference_geoms_large_lines <- difference_geoms[which(difference_geoms$num_lines<10),]
+mapview(difference_geoms_large_lines)
+
+#try to restrict to interconnect, longer, expansions *NOTE to be revised
+#*IDEA: could write so keep the names, by hand remove some of the larger obvious scraps
+difference_geoms$lengths <- st_length(difference_geoms)
+difference_geoms$lengths<-as.numeric(difference_geoms$lengths)
+mapview(difference_geoms,zcol="lengths")
+difference_geoms_large_lines <- difference_geoms[which(difference_geoms$lengths>400000),]
+difference_geoms_large_lines <- st_transform(difference_geoms_large_lines, crs=4326)
+mapview(difference_geoms_large_lines)
+
+#intersect with municipalities!
+intersecting_polygons <- st_intersects(difference_geoms_large_lines, brazil_amazon_municipalities)
+intersecting_polygons <- brazil_amazon_municipalities[unlist(intersecting_polygons), ]
+dim(intersecting_polygons)
+mapview(intersecting_polygons)
