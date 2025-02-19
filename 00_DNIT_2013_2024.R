@@ -25,7 +25,8 @@ waterways <- st_read("~/Desktop/doctorate/ch3 amazon network/data/BaseHidroHidro
 waterways$geometry <- st_transform(st_zm(waterways$geometry), 4326)
 waterways_bool <- st_covers(brazil_amazon,waterways$geometry, sparse = FALSE)
 waterways_amazon <- waterways[waterways_bool[1,],]
-mapview(waterways_amazon)
+waterways_amazon_navegavel <- waterways_amazon[which(waterways_amazon$cla_icacao=="Navegável"),]
+mapview(waterways_amazon_navegavel)
 
 #DNIT 2013
 DNIT_2013 <- st_read("~/Desktop/doctorate/ch3 amazon network/data/DNIT/201301A/ST_DNIT_RODOVIAS_SNV2013_COMPLETO.shp")
@@ -77,7 +78,7 @@ DNIT_2024_map
 DNIT_2013_2024_map <- ggplot() +
   geom_sf(data = brazil_amazon_municipalities, fill='white', color='lightgrey', size=.15, show.legend = FALSE) +
   geom_sf(data = brazil_amazon, fill=NA, color='black', size=.15, show.legend = FALSE) +
-  geom_sf(data = waterways_amazon, fill=NA, color='lightblue3', linewidth=0.7, show.legend = FALSE) +
+  geom_sf(data = waterways_amazon, fill=NA, color='slategrey', linewidth=0.7, show.legend = FALSE, alpha=0.7) +
   geom_sf(data = DNIT_2024_amazon_paved, aes(geometry = geometry, color='#CD1076FF'), linewidth=0.8, show.legend = "line") +
   geom_sf(data = DNIT_2013_amazon_paved, aes(geometry = geometry, color='#FFB04FFF'), linewidth=0.8, show.legend = "line") +
   scale_color_manual(name="Year Paved", values=c('#CD1076FF','#FFB04FFF'),

@@ -39,19 +39,25 @@ brazil_amazon <- st_read("~/Desktop/doctorate/ch3 amazon network/data/Limites_Am
 brazil_amazon$geometry <- st_transform(brazil_amazon$geometry, 4326)
 brazil_amazon_municipalities <- st_read("~/Desktop/doctorate/ch3 amazon network/data/Mun_Amazonia_Legal_2022_shp/Mun_Amazonia_Legal_2022.shp")
 brazil_amazon_municipalities$geometry <- st_transform(brazil_amazon_municipalities$geometry, 4326)
+
+# navigable waterways
+waterways <- st_read("~/Desktop/doctorate/ch3 amazon network/data/BaseHidroHidrovias/fc_hidro_hidrovia_antaq.shp")
+waterways$geometry <- st_transform(st_zm(waterways$geometry), 4326)
+waterways_bool <- st_covers(brazil_amazon,waterways$geometry, sparse = FALSE)
+waterways_amazon <- waterways[waterways_bool[1,],]
+waterways_amazon_navegavel <- waterways_amazon[which(waterways_amazon$cla_icacao=="Navegável"),]
+mapview(waterways_amazon_navegavel)
 ```
 
 
 ## Figure 1: Major highway projects by number
 
-This map displays the major highway projects (n = 16) in the Amazon (for now determined qualitatively by size), colored by number/name. 
+This map displays the major highway projects (n = 16) in the Amazon (for now determined qualitatively by size), colored by number/name. The grey/blue lines in the background show majoy navigable waterways.
 
 ```{r, section by name/project}
 #add a few non trunk pieces that are connectors
 osm_amazon_roads <- st_read("~/Desktop/doctorate/ch3 amazon network/data/osm_december/osm_amazon_roads.shp")
 osm_amazon_roads$fclass <- factor(osm_amazon_roads$fclass, levels = c('trunk','primary','secondary', 'tertiary'))
-#osm_amazon_roads_trunk <- osm_amazon_roads[which(osm_amazon_roads$fclass == 'trunk'),]
-#osm_amazon_roads_trunk_extras <- rbind(osm_amazon_roads_trunk,osm_amazon_roads[which(osm_amazon_roads$ref %in% c('BR-155','BR-155;PA-155')),])
 
 #frind brazilian national highways as designated by highway number (i.e., ref starts with "BR")
 osm_amazon_roads_ref_br <- osm_amazon_roads[which(substr(osm_amazon_roads$ref,0,2)=="BR"),]
@@ -72,6 +78,7 @@ n18_colors <- c(unname(tol())[1],"blue",unname(tol())[2:5], unname(tol())[6], "g
 proj_gt120_map <- ggplot() +
   geom_sf(data = brazil_amazon_municipalities, fill='white', color='lightgrey', size=.15, show.legend = FALSE) +
   geom_sf(data = brazil_amazon, fill=NA, color='black', size=.15, show.legend = FALSE) +
+  geom_sf(data = waterways_amazon_navegavel, fill=NA, color='#5972a9', linewidth=0.7, show.legend = FALSE, alpha=0.6) +
   geom_sf(data = osm_amazon_roads_ref_br_extras_proj_gt120, aes(geometry = geometry, color=first_ref), linewidth=0.8, show.legend = "line") +
 #  scale_color_manual(name="OSM (fclass)", values=c('#6A359CFF','#FFB04FFF','#CD1076FF', '#6497B1FF'),
 #                     labels=c('Trunk','Primary','Secondary', 'Tertiary')) +
@@ -92,7 +99,7 @@ proj_gt120_map
 
 ## Figure 2: Paving status change from 2001 to 2024
 
-Data posted by Brazil's National Department of Transportation Infrastructure. Very detailed data with shapefiles going back to 1994. I only present 2001 to 2024 here because dengue data only goes back to 2001. 2001--2012 is not validated by the Brazilian government and needs some cleaning.
+Data posted by Brazil's National Department of Transportation Infrastructure. Very detailed data with shapefiles going back to 1994. I only present 2001 to 2024 here because dengue data only goes back to 2001. 2001--2012 is not validated by the Brazilian government and needs some cleaning. The grey/blue lines in the background show majoy navigable waterways.
 
 ```{r}
 PNV_2001 <- read.csv("~/Desktop/doctorate/ch3 amazon network/data/DNIT_historical/PNV2001_UTF-8.csv", header=T, stringsAsFactors=FALSE)
@@ -120,6 +127,7 @@ DNIT_2024_amazon_paved_reduced <- data.frame(rep('2024',dim(DNIT_2024_amazon_pav
 DNIT_2001_2024_map <- ggplot() +
   geom_sf(data = brazil_amazon_municipalities, fill='white', color='lightgrey', size=.15, show.legend = FALSE) +
   geom_sf(data = brazil_amazon, fill=NA, color='black', size=.15, show.legend = FALSE) +
+  geom_sf(data = waterways_amazon_navegavel, fill=NA, color='#5972a9', linewidth=0.7, show.legend = FALSE, alpha=0.6) +
   geom_sf(data = DNIT_2024_amazon_paved, aes(geometry = geometry, color='#CD1076FF'), linewidth=0.8, show.legend = "line") +
   geom_sf(data = joined_sf_amazon_paved, aes(geometry = geometry, color='#ffc500'), linewidth=0.8, show.legend = "line") +
   scale_color_manual(name="Year Paved", values=c('#CD1076FF','#ffc500'),
@@ -146,20 +154,18 @@ DNIT_2001_2024_differences_large_lines <- DNIT_2001_2024_differences[which(DNIT_
 DNIT_2001_2024_differences_large_lines <- st_transform(DNIT_2001_2024_differences_large_lines, crs=4326)
 #mapview(DNIT_2001_2024_differences_large_lines)
 
-#intersect with municipalities!
+#intersect with municipalities
 intersecting_polygons <- st_intersects(DNIT_2001_2024_differences_large_lines, brazil_amazon_municipalities)
 intersecting_polygons <- brazil_amazon_municipalities[unlist(intersecting_polygons), ]
-dim(intersecting_polygons)
+#dim(intersecting_polygons)
 #mapview(intersecting_polygons)
 
 DNIT_2001_2024_municipalities_map <- ggplot() +
   geom_sf(data = brazil_amazon_municipalities, fill='white', color='lightgrey', size=.15, show.legend = FALSE) +
   geom_sf(data = intersecting_polygons, fill='lightgrey', color='black', size=.15, show.legend = FALSE) +
   geom_sf(data = brazil_amazon, fill=NA, color='black', size=.15, show.legend = FALSE) +
-  geom_sf(data =  , aes(geometry = geometry), color='#CD1076FF', linewidth=0.8) +
-  #geom_sf(data = joined_sf_amazon_paved, aes(geometry = geometry, color='#ffc500'), linewidth=0.8, show.legend = "line") +
-  #scale_color_manual(name="Year Paved", values=c('#CD1076FF','#ffc500'),
-  #                   labels=c('2024','2001')) +
+  geom_sf(data = waterways_amazon_navegavel, fill=NA, color='#5972a9', linewidth=0.7, show.legend = FALSE, alpha=0.6) +
+  geom_sf(data = DNIT_2001_2024_differences_large_lines, aes(geometry = geometry), color='#CD1076FF', linewidth=0.8) +
   theme_minimal() +
   no_axis +
   theme(legend.text=element_text(size=12),
@@ -241,8 +247,9 @@ DNIT_2024_amazon <- DNIT_2024_amazon[which(DNIT_2024_amazon$ds_superfi %in% c('P
 DNIT_future_map <- ggplot() +
   geom_sf(data = brazil_amazon_municipalities, fill='white', color='lightgrey', size=.15, show.legend = FALSE) +
   geom_sf(data = brazil_amazon, fill=NA, color='black', size=.15, show.legend = FALSE) +
+  geom_sf(data = waterways_amazon_navegavel, fill=NA, color='#5972a9', linewidth=0.7, show.legend = FALSE, alpha=0.6) +
   geom_sf(data = DNIT_2024_amazon, aes(geometry = geometry, color=ds_superfi), linewidth=0.8, alpha=1, show.legend = 'line') +
-  scale_color_manual(name="Road Status", values=c('#648FFF', '#ffc500', '#DC267F'),
+  scale_color_manual(name="Road Status", values=c('darkred', '#CD1076FF', '#fdbf30'),
                      labels=c('Not paved', 'Paved', 'Planned')) +
   theme_minimal() +
   no_axis +
