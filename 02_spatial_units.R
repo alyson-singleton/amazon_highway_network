@@ -23,9 +23,9 @@ DNIT_2001_amazon_paved <- joined_sf_amazon_paved
 mapview(joined_sf_amazon)
 mapview(joined_sf_amazon_paved)
 
-#################################################
-# build sections of road for differece workflow #
-#################################################
+##################################################
+# build sections of road for difference workflow #
+##################################################
 
 #build loop to make unique names when linestrings don't touch
 
