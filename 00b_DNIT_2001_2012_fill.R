@@ -4,7 +4,7 @@ library(readxl)
 # load data from 2001 and 2024 #
 ################################
 
-PNV_2001 <- read.csv("~/Desktop/doctorate/ch3 amazon network/data/DNIT_historical/PNV2001_UTF-8.csv", header=T, stringsAsFactors=FALSE)
+PNV_2001 <- read_excel("~/Desktop/doctorate/ch3 amazon network/data/DNIT_historical/PNV2001.xlsx")
 PNV_2001 <- PNV_2001[!is.na(PNV_2001$BR),]
 PNV_2001$vl_codigo <- PNV_2001$CODIGO
 
@@ -71,7 +71,7 @@ false_2001_364BRO <- all_2001_364BRO[which(all_2001_364BRO$match == FALSE),]
 join_right_2001_match_col$name <- substr(join_right_2001_match_col$vl_codigo,1,6)
 join_right_2001_match_col$number <- substr(join_right_2001_match_col$vl_codigo,7,10)
 #join_right_2001_match_col <- join_right_2001_match_col[which(join_right_2001_match_col$SUPERFICIE == "PAV"),] %>% st_as_sf()
-all_2024_364BRO <- join_right_2001_match_col[which(join_right_2001_match_col$name == "242BTO"),]%>% st_as_sf() #look here to see what you are adding
+all_2024_364BRO <- join_right_2001_match_col[which(join_right_2001_match_col$name == "010BTO"),] %>% st_as_sf() #look here to see what you are adding
 mapview(all_2024_364BRO)
 false_2024_364BRO <- all_2024_364BRO[which(all_2024_364BRO$match == FALSE),]
 
@@ -88,7 +88,8 @@ DNIT_2001_amazon_paved$name <- substr(DNIT_2001_amazon_paved$vl_codigo,1,6)
 DNIT_2001_amazon_paved$number <- substr(DNIT_2001_amazon_paved$vl_codigo,7,10)
 unique(DNIT_2001_amazon_paved$name)
 
-our_list <- c("364BRO","174BRR","364BMT","163BMT","070BMT","163BMT","153BTO","010BTO", "010BMA", "230BTO", "242BTO") #unique(DNIT_2001_amazon_paved$name
+our_list <- c("364BRO","174BRR","364BMT","163BMT","070BMT","163BMT","153BTO", "010BMA", "230BTO") #unique(DNIT_2001_amazon_paved$name
+#our_list <- unique(DNIT_2001_amazon_paved$name)
 DNIT_2001_amazon_paved_baseline <- DNIT_2001_amazon_paved
 DNIT_2001_amazon_paved_baseline$match <- TRUE
 DNIT_2001_amazon_paved_baseline <- DNIT_2001_amazon_paved_baseline[,c(1:3,17,4:13,15,16,14)]
@@ -100,6 +101,40 @@ for (i in 1:length(our_list)) {
   DNIT_2001_amazon_paved_baseline <- rbind(DNIT_2001_amazon_paved_baseline,all_unmatched_2024_name_i)
 }
 mapview(DNIT_2001_amazon_paved_baseline)
+mapview(DNIT_2001_amazon_paved_baseline_stor)
 mapview(DNIT_2001_amazon_paved)
 mapview(DNIT_2013_amazon_paved)
 mapview(DNIT_2024_amazon_paved)
+
+#########################################################
+#now let's look into changes between 2001 and 2006 (halfway through)
+#########################################################
+
+PNV_2006 <- read_excel("~/Desktop/doctorate/ch3 amazon network/data/DNIT_historical/PNV2006.xlsx")
+PNV_2006 <- PNV_2006[!is.na(PNV_2006$BR),]
+PNV_2006$vl_codigo <- PNV_2006$CODIGO
+join_left_2006 <- left_join(PNV_2006,DNIT_2024_reduced, by=c("vl_codigo"))
+joined_sf <- st_as_sf(join_left_2006)
+joined_sf_bool <- st_covers(brazil_amazon,joined_sf$geometry, sparse = FALSE)
+joined_sf_amazon <- joined_sf[joined_sf_bool[1,],]
+joined_sf_amazon_paved <- joined_sf_amazon[which(joined_sf_amazon$SUPERFICIE  %in% c("PAV","DUP")),]
+DNIT_2006_amazon_paved <- joined_sf_amazon_paved
+mapview(DNIT_2006_amazon_paved)
+
+#########################################################
+#2012
+#########################################################
+
+SNV_2012 <- read_excel("~/Desktop/doctorate/ch3 amazon network/data/DNIT_historical/SNV_2012.xlsx")
+colnames(SNV_2012) <- SNV_2012[2,]
+SNV_2012 <- SNV_2012[-c(1,2),]
+SNV_2012 <- SNV_2012[!is.na(SNV_2012$BR),]
+SNV_2012$vl_codigo <- SNV_2012$Código
+colnames(SNV_2012)[13:15] <- c("FedCoin1","FedCoin2","FedCoin3")
+join_left_2012 <- left_join(SNV_2012,DNIT_2024_reduced, by=c("vl_codigo"))
+joined_sf <- st_as_sf(join_left_2012)
+joined_sf_bool <- st_covers(brazil_amazon,joined_sf$geometry, sparse = FALSE)
+joined_sf_amazon <- joined_sf[joined_sf_bool[1,],]
+joined_sf_amazon_paved <- joined_sf_amazon[which(joined_sf_amazon$Superficie  %in% c("PAV","DUP")),]
+DNIT_2012_amazon_paved <- joined_sf_amazon_paved
+mapview(DNIT_2012_amazon_paved)
