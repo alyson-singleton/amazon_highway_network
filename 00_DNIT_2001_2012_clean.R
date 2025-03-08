@@ -166,23 +166,53 @@ for (year in years){
 #check km start end to see about some of the jumps 2012 to 2013
 PNV_2012_010BTO <- PNV_2012[which(PNV_2012$name == "010BTO"),]
 PNV_2012_010BTO_paved <- PNV_2012_010BTO[which(PNV_2012_010BTO$SUPERFICIE  %in% c('PAV', 'DUP', 'EOD') | PNV_2012_010BTO$SUP_ESTADUAL %in% c('PAV', 'DUP', 'EOD')),]
-DNIT_2012_amazon_paved_filled_010BTO <- DNIT_2012_amazon_paved_filled[which(DNIT_2012_amazon_paved_filled$name == "010BTO"),]
+PNV_2012_010BTO_paved <- st_sf(PNV_2012_010BTO_paved, geometry = "geometry") 
+#DNIT_2012_amazon_paved_filled_010BTO <- DNIT_2012_amazon_paved_filled[which(DNIT_2012_amazon_paved_filled$name == "010BTO"),]
 DNIT_2024_amazon_paved_010BTO <-  DNIT_2024_amazon_paved[which(DNIT_2024_amazon_paved$name == "010BTO"),]
 
-codes_wo_match <- unique(PNV_2012_010BTO_paved$vl_codigo)[!unique(PNV_2012_010BTO_paved$vl_codigo) %in% unique(DNIT_2024_amazon_paved_010BTO$vl_codigo)]
+geometries <- list()
 for (i in 1:dim(PNV_2012_010BTO_paved)[1]){
   print(i)
-  #print(row)
   
-  #option 1: early segment is inside 2024 segment
   row <- PNV_2012_010BTO_paved[i,]
-  row_km_ini <- row$KM_INI
-  row_km_fim <- row$KM_FIM
-  #search for 2024 row that corresponds to beginning and end
+  row_km_ini <- as.numeric(row$KM_INI)
+  row_km_fim <- as.numeric(row$KM_FIM)
+  
+  #option 1: early segment is fully inside one 2024 segment
   found_row <- DNIT_2024_amazon_paved_010BTO[which(DNIT_2024_amazon_paved_010BTO$KM_INI < row_km_ini & 
                                                      DNIT_2024_amazon_paved_010BTO$KM_FIM > row_km_fim),]
   if (dim(found_row)[1]==1) {
     print("a")
+    
+    km_ini_2024 <- found_row$KM_INI
+    km_fim_2024 <- found_row$KM_FIM
+    
+    start_fraction <- (row_km_ini-km_ini_2024)/(km_fim_2024-km_ini_2024)
+    end_fraction <- (row_km_fim-km_ini_2024)/(km_fim_2024-km_ini_2024)
+    
+    line <- DNIT_2024_amazon_paved_010BTO[which(DNIT_2024_amazon_paved_010BTO$vl_codigo == found_row$vl_codigo),]
+    line_proj <- st_transform(line, 3857)
+    
+    start_point <- st_line_sample(line_proj, sample = start_fraction) %>% st_transform(st_crs(line_proj))
+    end_point <- st_line_sample(line_proj, sample = end_fraction) %>% st_transform(st_crs(line_proj))
+    
+    split_points <- st_union(start_point,end_point)
+    
+    blades <- split_points %>%
+      st_cast("POINT") %>%
+      st_coordinates() %>%
+      asplit(1) %>%
+      lapply(function(x) rbind(x + c(0, -1e-6), x + c(0, 1e-6))) %>%
+      st_multilinestring() %>%
+      st_sfc(crs = 3857)
+    
+    segments <- st_split(line_proj, blades) %>% 
+      st_collection_extract("LINESTRING")
+    
+    ifelse(dim(segments)[1]==3, 
+      geometries[[i]] <- segments$geometry[2,],
+      print("HELP")
+    )
   }
   
   #option 2: early segment spans two 2024 segments but neither completely
@@ -191,12 +221,93 @@ for (i in 1:dim(PNV_2012_010BTO_paved)[1]){
     lowest_row <- last(ini_rows)
     fim_rows <- DNIT_2024_amazon_paved_010BTO[which(DNIT_2024_amazon_paved_010BTO$KM_FIM > row_km_fim),]
     highest_row <- first(fim_rows)
-    num <- which(highest_row$CODIGO == DNIT_2024_amazon_paved_010BTO$CODIGO) - which(lowest_row$CODIGO == DNIT_2024_amazon_paved_010BTO$CODIGO)
-    print(num)
+    highest_row_index <- which(highest_row$CODIGO == DNIT_2024_amazon_paved_010BTO$CODIGO)
+    lowest_row_index <- which(lowest_row$CODIGO == DNIT_2024_amazon_paved_010BTO$CODIGO)
+    range <- highest_row_index - lowest_row_index
+    #print(range)
+    
+    if (!length(range)==0 && range==1) {
+      print("b")
+      
+      #grab portion from first segment (write this into a function?)
+      km_ini_2024 <- lowest_row$KM_INI
+      km_fim_2024 <- lowest_row$KM_FIM
+      start_fraction <- (row_km_ini-km_ini_2024)/(km_fim_2024-km_ini_2024)
+      
+      if(start_fraction < 1){
+        line <- DNIT_2024_amazon_paved_010BTO[which(DNIT_2024_amazon_paved_010BTO$vl_codigo == lowest_row$vl_codigo),]
+        line_proj <- st_transform(line, 3857)
+        
+        start_point <- st_line_sample(line_proj, sample = start_fraction) %>% st_transform(st_crs(line_proj))
+        
+        blades <- start_point %>%
+          st_cast("POINT") %>%
+          st_coordinates() %>%
+          asplit(1) %>%
+          lapply(function(x) rbind(x + c(0, -1e-6), x + c(0, 1e-6))) %>%
+          st_multilinestring() %>%
+          st_sfc(crs = 3857)
+        
+        segments <- st_split(line_proj, blades) %>% 
+          st_collection_extract("LINESTRING")
+        
+        ifelse(dim(segments)[1]==2, 
+               geom1 <- segments$geometry[2,],
+               print("HELP"))
+      }else{
+        geom1 <- NA
+      }
+      
+      
+      #grab portion from second segment
+      km_ini_2024 <- highest_row$KM_INI
+      km_fim_2024 <- highest_row$KM_FIM
+      end_fraction <- (row_km_fim-km_ini_2024)/(km_fim_2024-km_ini_2024)
+      
+      if(end_fraction < 1){
+        line <- DNIT_2024_amazon_paved_010BTO[which(DNIT_2024_amazon_paved_010BTO$vl_codigo == highest_row$vl_codigo),]
+        line_proj <- st_transform(line, 3857)
+        
+        end_point <- st_line_sample(line_proj, sample = end_fraction) %>% st_transform(st_crs(line_proj))
+        
+        blades <- end_point %>%
+          st_cast("POINT") %>%
+          st_coordinates() %>%
+          asplit(1) %>%
+          lapply(function(x) rbind(x + c(0, -1e-6), x + c(0, 1e-6))) %>%
+          st_multilinestring() %>%
+          st_sfc(crs = 3857)
+        
+        segments <- st_split(line_proj, blades) %>% 
+          st_collection_extract("LINESTRING")
+        
+        ifelse(dim(segments)[1]==2, 
+               geom2 <- segments$geometry[1,],
+               print("HELP")
+        )
+      }else{
+        geom2 <- NA
+      }
+      
+      #unite and store
+      if(!is.na(geom1) && !is.na(geom2)){
+        geometries[[i]] <- st_union(geom1, geom2)
+      }
+      if(is.na(geom1) && !is.na(geom2)){
+        geometries[[i]] <- geom2
+      }
+      if(!is.na(geom1) && is.na(geom2)){
+        geometries[[i]] <- geom1
+      }
+    }
   }
 
   #option 3: early segment includes multiple full and partial 2024 segments
-  
+  if (!dim(found_row)[1]==1 && !length(range)==0 && range>1) {
+    middle_rows <- DNIT_2024_amazon_paved_010BTO[(as.numeric(lowest_row_index)+1):(as.numeric(highest_row_index)-1),]
+    #print(middle_rows)
+  }
+
   
 }
 
