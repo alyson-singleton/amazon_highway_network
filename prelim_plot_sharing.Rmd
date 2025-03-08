@@ -244,19 +244,23 @@ DNIT_2024_amazon <- DNIT_2024[DNIT_2024_bool[1,],]
 #DNIT_2024_amazon$sg_legenda <- factor(DNIT_2024_amazon$sg_legenda, levels = c('N_PAV','PAV','PLA', 'TRV'))
 DNIT_2024_amazon <- DNIT_2024_amazon[which(DNIT_2024_amazon$ds_superfi %in% c('PAV','PLA', 'N_PAV')),]
 
+DNIT_2024_amazon$ds_superfi[which(DNIT_2024_amazon$ds_superfi == 'N_PAV')] <- 'PAV'
+
 DNIT_future_map <- ggplot() +
   geom_sf(data = brazil_amazon_municipalities, fill='white', color='lightgrey', size=.15, show.legend = FALSE) +
   geom_sf(data = brazil_amazon, fill=NA, color='black', size=.15, show.legend = FALSE) +
   geom_sf(data = waterways_amazon_navegavel, fill=NA, color='#5972a9', linewidth=0.7, show.legend = FALSE, alpha=0.6) +
   geom_sf(data = DNIT_2024_amazon, aes(geometry = geometry, color=ds_superfi), linewidth=0.8, alpha=1, show.legend = 'line') +
-  scale_color_manual(name="Road Status", values=c('darkred', '#CD1076FF', '#fdbf30'),
-                     labels=c('Not paved', 'Paved', 'Planned')) +
+  scale_color_manual(name="Road Status", values=c('#CD1076FF', '#fdbf30'),
+                     labels=c('Current', 'Planned')) +
   theme_minimal() +
   no_axis +
   theme(legend.text=element_text(size=12),
         legend.title=element_text(size=14),
         legend.position='right')
 DNIT_future_map
+
+ggsave("kunal_fig.pdf", plot=DNIT_future_map, path="~/Desktop/", width = 10, height = 8, units="in", device = "pdf")
 
 #mapview(DNIT_2024_amazon, zcol="ds_superfi")
 ```

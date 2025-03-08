@@ -138,7 +138,7 @@ DNIT_2024_reduced <- DNIT_2024_amazon_paved[,c(7,29)]
 
 #loop to add 2024 shapefiles to each year (2001-2012)
 years <- 2001:2012
-#year <- 2002
+year <- 2012
 for (year in years){
   print(year)
   
@@ -155,8 +155,94 @@ for (year in years){
   assign(new_df_name, joined_sf_amazon_paved)
 }
 
+#add another step that recovers PAV sections that dont have a perfect vl_codigo match
+
+#go through by name
+#find any left out that are PAV/DUP/EOD
+#find overlap using km start and finish, if close enough, add in the previously excluded row from 2024
+#rename/tag as needed
+
+#start with one example, 010BTO
+#check km start end to see about some of the jumps 2012 to 2013
+PNV_2012_010BTO <- PNV_2012[which(PNV_2012$name == "010BTO"),]
+PNV_2012_010BTO_paved <- PNV_2012_010BTO[which(PNV_2012_010BTO$SUPERFICIE  %in% c('PAV', 'DUP', 'EOD') | PNV_2012_010BTO$SUP_ESTADUAL %in% c('PAV', 'DUP', 'EOD')),]
+DNIT_2012_amazon_paved_filled_010BTO <- DNIT_2012_amazon_paved_filled[which(DNIT_2012_amazon_paved_filled$name == "010BTO"),]
+DNIT_2024_amazon_paved_010BTO <-  DNIT_2024_amazon_paved[which(DNIT_2024_amazon_paved$name == "010BTO"),]
+
+codes_wo_match <- unique(PNV_2012_010BTO_paved$vl_codigo)[!unique(PNV_2012_010BTO_paved$vl_codigo) %in% unique(DNIT_2024_amazon_paved_010BTO$vl_codigo)]
+for (i in 1:dim(PNV_2012_010BTO_paved)[1]){
+  print(i)
+  #print(row)
+  
+  #option 1: early segment is inside 2024 segment
+  row <- PNV_2012_010BTO_paved[i,]
+  row_km_ini <- row$KM_INI
+  row_km_fim <- row$KM_FIM
+  #search for 2024 row that corresponds to beginning and end
+  found_row <- DNIT_2024_amazon_paved_010BTO[which(DNIT_2024_amazon_paved_010BTO$KM_INI < row_km_ini & 
+                                                     DNIT_2024_amazon_paved_010BTO$KM_FIM > row_km_fim),]
+  if (dim(found_row)[1]==1) {
+    print("a")
+  }
+  
+  #option 2: early segment spans two 2024 segments but neither completely
+  if (!dim(found_row)[1]==1) {
+    ini_rows <- DNIT_2024_amazon_paved_010BTO[which(DNIT_2024_amazon_paved_010BTO$KM_INI < row_km_ini),]
+    lowest_row <- last(ini_rows)
+    fim_rows <- DNIT_2024_amazon_paved_010BTO[which(DNIT_2024_amazon_paved_010BTO$KM_FIM > row_km_fim),]
+    highest_row <- first(fim_rows)
+    num <- which(highest_row$CODIGO == DNIT_2024_amazon_paved_010BTO$CODIGO) - which(lowest_row$CODIGO == DNIT_2024_amazon_paved_010BTO$CODIGO)
+    print(num)
+  }
+
+  #option 3: early segment includes multiple full and partial 2024 segments
+  
+  
+}
+
+
+#new idea (segment)
+library(sf)
+library(lwgeom)
+
+km_ini_2012 <- 412.4
+km_fim_2012 <- 423.9
+
+km_ini_2024 <- 408.8
+km_fim_2024 <- 448.3
+
+start_fraction <- (km_ini_2012-km_ini_2024)/(km_fim_2024-km_ini_2024)
+end_fraction <- (km_fim_2012-km_ini_2024)/(km_fim_2024-km_ini_2024)
+
+line <- DNIT_2024_amazon_paved_010BTO[which(DNIT_2024_amazon_paved_010BTO$vl_codigo =="010BTO0276"),]
+line_proj <- st_transform(line, 3857)
+
+start_point <- st_line_sample(line_proj, sample = start_fraction) %>% st_transform(st_crs(line_proj))
+end_point <- st_line_sample(line_proj, sample = end_fraction) %>% st_transform(st_crs(line_proj))
+  
+split_points <- st_union(start_point,end_point)
+
+#make points tiny lines to split (points dont work)
+blades <- split_points %>%
+  st_cast("POINT") %>%
+  st_coordinates() %>%
+  asplit(1) %>%
+  lapply(function(x) rbind(x + c(0, -1e-6), x + c(0, 1e-6))) %>%
+  st_multilinestring() %>%
+  st_sfc(crs = 3857)
+
+segments <- st_split(line_proj, blades) %>% 
+  st_collection_extract("LINESTRING")
+
+segments
+
+# plot
+plot(line_proj, col = "grey")
+plot(start_point, col = "red", add = TRUE)
+plot(segments$geometry, col = rainbow(3), lwd = 3)
+
 #######################################
-# fill in spottiness
+# fill in additional spottiness
 #######################################
 
 join_right_2001 <- right_join(PNV_2001,DNIT_2024_reduced, by=c("vl_codigo")) #is DNIT_2024_reduced just amazon roads here? can PNV_2001 be DNIT_2001_amazon_paved?

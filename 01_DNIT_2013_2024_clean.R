@@ -144,7 +144,7 @@ for (year in years){
 
 #check
 mapview(DNIT_2001_amazon_paved_filled)
-mapview(DNIT_2012_amazon_paved_filled)#double check jumps from 2012-2013
+mapview(DNIT_2012_amazon_paved_filled)#**double check jumps from 2012-2013
 mapview(DNIT_2013_amazon_paved)
 mapview(DNIT_2015_amazon_paved)
 mapview(DNIT_2016_amazon_paved)
@@ -164,3 +164,9 @@ for (year in years){
   df <- get(df_name)
   st_write(df, paste0("~/Desktop/doctorate/ch3 amazon network/data/DNIT_processed/DNIT_yearly_base_maps/", "DNIT_", year, "_base_map.shp", sep=""))
 }
+
+#######################################
+# scratch
+#######################################
+
+
