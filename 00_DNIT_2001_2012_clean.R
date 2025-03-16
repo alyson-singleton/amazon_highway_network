@@ -215,7 +215,7 @@ linestring_one_split_function <- function(start_fraction, row_of_interest) {
 }
 
 
-geometries <- list()
+geometries <- vector("list",length=nrow(PNV_2012_010BTO_paved))
 for (i in 1:dim(PNV_2012_010BTO_paved)[1]){
   print(i)
   
@@ -238,10 +238,10 @@ for (i in 1:dim(PNV_2012_010BTO_paved)[1]){
     segments <- linestring_two_splits_function(start_fraction, end_fraction, found_row)
     
     if(dim(segments)[1]==3){
-      geometries[[i]] <- segments$geometry[2,] %>% 
-        st_transform(crs=4326)
+      geom <- segments$geometry[2,]
+      geometries[[i]] <- geom[[1]]
     }else{
-      print("a error")
+      print("(a) error")
     }
   }
   
@@ -257,7 +257,7 @@ for (i in 1:dim(PNV_2012_010BTO_paved)[1]){
     #print(range)
     
     if(length(range)==0){
-      geometries[[i]] <- st_sfc()
+      geometries[[i]] <- st_sfc(st_linestring())[[1]]
     }
     
     if (!length(range)==0 && range==1) {
@@ -303,22 +303,18 @@ for (i in 1:dim(PNV_2012_010BTO_paved)[1]){
         
         all_geoms <- st_as_sf(all_geoms) %>%
           st_combine() %>%
-          st_line_merge() %>%
-          st_as_sf()
+          st_line_merge()
         
-        geometries[[i]] <- all_geoms$x %>% 
-          st_transform(crs=4326)
+        geometries[[i]] <- all_geoms[[1]]
       }
       if(is.na(geom1) && !is.na(geom2)){
-        geometries[[i]] <- geom2 %>% 
-          st_transform(crs=4326)
+        geometries[[i]] <- geom2[[1]]
       }
       if(!is.na(geom1) && is.na(geom2)){
-        geometries[[i]] <- geom1 %>% 
-          st_transform(crs=4326)
+        geometries[[i]] <- geom1[[1]]
       }
       if(is.na(geom1) && is.na(geom2)){
-        geometries[[i]] <- st_sfc()
+        geometries[[i]] <- st_sfc(st_linestring())[[1]]
       }
     }
   }
@@ -368,55 +364,47 @@ for (i in 1:dim(PNV_2012_010BTO_paved)[1]){
     
     #unite and store
     if(!is.na(geom1) && !is.na(geom2)){
-      all_geoms <- c(geom1, geom2,middle_rows_trans$geometry)
+      all_geoms <- c(geom1, geom2, middle_rows_trans$geometry)
 
       all_geoms <- st_as_sf(all_geoms) %>%
         st_combine() %>%
-        st_line_merge() %>%
-        st_as_sf()
+        st_line_merge()
       
-      geometries[[i]] <- all_geoms$x %>% 
-        st_transform(crs=4326)
+      geometries[[i]] <- all_geoms[[1]]
     }
     if(is.na(geom1) && !is.na(geom2)){
       all_geoms <- c(geom2, middle_rows_trans$geometry)
       
       all_geoms <- st_as_sf(all_geoms) %>%
         st_combine() %>%
-        st_line_merge() %>%
-        st_as_sf()
+        st_line_merge()
       
-      geometries[[i]] <- all_geoms$x %>% 
-        st_transform(crs=4326)
+      geometries[[i]] <- all_geoms[[1]]
     }
     if(!is.na(geom1) && is.na(geom2)){
       all_geoms <- c(geom1, middle_rows_trans$geometry)
       
       all_geoms <- st_as_sf(all_geoms) %>%
         st_combine() %>%
-        st_line_merge() %>%
-        st_as_sf()
+        st_line_merge()
       
-      geometries[[i]] <- all_geoms$x %>% 
-        st_transform(crs=4326)    
+      geometries[[i]] <- all_geoms[[1]] 
     }
     if(is.na(geom1) && is.na(geom2)){
       all_geoms <- middle_rows_trans$geometry
       
       all_geoms <- st_as_sf(all_geoms) %>%
         st_combine() %>%
-        st_line_merge() %>%
-        st_as_sf()
+        st_line_merge() 
       
-      geometries[[i]] <- all_geoms$x %>% 
-        st_transform(crs=4326)
+      geometries[[i]] <- all_geoms[[1]]
     }
   }
 }
 
-#close but drops empty geometries, start here
-PNV_2012_010BTO_paved_test <- PNV_2012_010BTO_paved
-PNV_2012_010BTO_paved_test$geometry <- do.call(rbind, geometries)
+PNV_2012_010BTO_paved_sf <- st_as_sf(PNV_2012_010BTO_paved, geometry=st_sfc(geometries, crs=3857)) %>% 
+  st_transform(crs=4326)
+mapview(PNV_2012_010BTO_paved_sf) 
 
 #next steps
 #generalize to a full year
