@@ -170,6 +170,51 @@ PNV_2012_010BTO_paved <- st_sf(PNV_2012_010BTO_paved, geometry = "geometry")
 #DNIT_2012_amazon_paved_filled_010BTO <- DNIT_2012_amazon_paved_filled[which(DNIT_2012_amazon_paved_filled$name == "010BTO"),]
 DNIT_2024_amazon_paved_010BTO <-  DNIT_2024_amazon_paved[which(DNIT_2024_amazon_paved$name == "010BTO"),]
 
+linestring_two_splits_function <- function(start_fraction, end_fraction, row_of_interest) {
+  
+  line <- DNIT_2024_amazon_paved_010BTO[which(DNIT_2024_amazon_paved_010BTO$vl_codigo == row_of_interest$vl_codigo),]
+  line_proj <- st_transform(line, 3857)
+  
+  start_point <- st_line_sample(line_proj, sample = start_fraction) %>% st_transform(st_crs(line_proj))
+  end_point <- st_line_sample(line_proj, sample = end_fraction) %>% st_transform(st_crs(line_proj))
+  
+  split_points <- st_union(start_point,end_point)
+  
+  blades <- split_points %>%
+    st_cast("POINT") %>%
+    st_coordinates() %>%
+    asplit(1) %>%
+    lapply(function(x) rbind(x + c(0, -1e-6), x + c(0, 1e-6))) %>%
+    st_multilinestring() %>%
+    st_sfc(crs = 3857)
+  
+  segments <- st_split(line_proj, blades) %>% 
+    st_collection_extract("LINESTRING")
+  
+  return(segments)
+}
+linestring_one_split_function <- function(start_fraction, row_of_interest) {
+  
+  line <- DNIT_2024_amazon_paved_010BTO[which(DNIT_2024_amazon_paved_010BTO$vl_codigo == row_of_interest$vl_codigo),]
+  line_proj <- st_transform(line, 3857)
+  
+  start_point <- st_line_sample(line_proj, sample = start_fraction) %>% st_transform(st_crs(line_proj))
+
+  blades <- start_point %>%
+    st_cast("POINT") %>%
+    st_coordinates() %>%
+    asplit(1) %>%
+    lapply(function(x) rbind(x + c(0, -1e-6), x + c(0, 1e-6))) %>%
+    st_multilinestring() %>%
+    st_sfc(crs = 3857)
+  
+  segments <- st_split(line_proj, blades) %>% 
+    st_collection_extract("LINESTRING")
+  
+  return(segments)
+}
+
+
 geometries <- list()
 for (i in 1:dim(PNV_2012_010BTO_paved)[1]){
   print(i)
@@ -190,29 +235,14 @@ for (i in 1:dim(PNV_2012_010BTO_paved)[1]){
     start_fraction <- (row_km_ini-km_ini_2024)/(km_fim_2024-km_ini_2024)
     end_fraction <- (row_km_fim-km_ini_2024)/(km_fim_2024-km_ini_2024)
     
-    line <- DNIT_2024_amazon_paved_010BTO[which(DNIT_2024_amazon_paved_010BTO$vl_codigo == found_row$vl_codigo),]
-    line_proj <- st_transform(line, 3857)
+    segments <- linestring_two_splits_function(start_fraction, end_fraction, found_row)
     
-    start_point <- st_line_sample(line_proj, sample = start_fraction) %>% st_transform(st_crs(line_proj))
-    end_point <- st_line_sample(line_proj, sample = end_fraction) %>% st_transform(st_crs(line_proj))
-    
-    split_points <- st_union(start_point,end_point)
-    
-    blades <- split_points %>%
-      st_cast("POINT") %>%
-      st_coordinates() %>%
-      asplit(1) %>%
-      lapply(function(x) rbind(x + c(0, -1e-6), x + c(0, 1e-6))) %>%
-      st_multilinestring() %>%
-      st_sfc(crs = 3857)
-    
-    segments <- st_split(line_proj, blades) %>% 
-      st_collection_extract("LINESTRING")
-    
-    ifelse(dim(segments)[1]==3, 
-      geometries[[i]] <- segments$geometry[2,],
-      print("HELP")
-    )
+    if(dim(segments)[1]==3){
+      geometries[[i]] <- segments$geometry[2,] %>% 
+        st_transform(crs=4326)
+    }else{
+      print("a error")
+    }
   }
   
   #option 2: early segment spans two 2024 segments but neither completely
@@ -226,6 +256,10 @@ for (i in 1:dim(PNV_2012_010BTO_paved)[1]){
     range <- highest_row_index - lowest_row_index
     #print(range)
     
+    if(length(range)==0){
+      geometries[[i]] <- st_sfc()
+    }
+    
     if (!length(range)==0 && range==1) {
       print("b")
       
@@ -235,29 +269,16 @@ for (i in 1:dim(PNV_2012_010BTO_paved)[1]){
       start_fraction <- (row_km_ini-km_ini_2024)/(km_fim_2024-km_ini_2024)
       
       if(start_fraction < 1){
-        line <- DNIT_2024_amazon_paved_010BTO[which(DNIT_2024_amazon_paved_010BTO$vl_codigo == lowest_row$vl_codigo),]
-        line_proj <- st_transform(line, 3857)
+        segments <- linestring_one_split_function(start_fraction, lowest_row)
         
-        start_point <- st_line_sample(line_proj, sample = start_fraction) %>% st_transform(st_crs(line_proj))
-        
-        blades <- start_point %>%
-          st_cast("POINT") %>%
-          st_coordinates() %>%
-          asplit(1) %>%
-          lapply(function(x) rbind(x + c(0, -1e-6), x + c(0, 1e-6))) %>%
-          st_multilinestring() %>%
-          st_sfc(crs = 3857)
-        
-        segments <- st_split(line_proj, blades) %>% 
-          st_collection_extract("LINESTRING")
-        
-        ifelse(dim(segments)[1]==2, 
-               geom1 <- segments$geometry[2,],
-               print("HELP"))
+        if(dim(segments)[1]==2){
+          geom1 <- segments$geometry[2,]
+        }else{
+          geom1 <- NA
+        } 
       }else{
         geom1 <- NA
       }
-      
       
       #grab portion from second segment
       km_ini_2024 <- highest_row$KM_INI
@@ -265,54 +286,146 @@ for (i in 1:dim(PNV_2012_010BTO_paved)[1]){
       end_fraction <- (row_km_fim-km_ini_2024)/(km_fim_2024-km_ini_2024)
       
       if(end_fraction < 1){
-        line <- DNIT_2024_amazon_paved_010BTO[which(DNIT_2024_amazon_paved_010BTO$vl_codigo == highest_row$vl_codigo),]
-        line_proj <- st_transform(line, 3857)
+        segments <- linestring_one_split_function(end_fraction, highest_row)
         
-        end_point <- st_line_sample(line_proj, sample = end_fraction) %>% st_transform(st_crs(line_proj))
-        
-        blades <- end_point %>%
-          st_cast("POINT") %>%
-          st_coordinates() %>%
-          asplit(1) %>%
-          lapply(function(x) rbind(x + c(0, -1e-6), x + c(0, 1e-6))) %>%
-          st_multilinestring() %>%
-          st_sfc(crs = 3857)
-        
-        segments <- st_split(line_proj, blades) %>% 
-          st_collection_extract("LINESTRING")
-        
-        ifelse(dim(segments)[1]==2, 
-               geom2 <- segments$geometry[1,],
-               print("HELP")
-        )
+        if(dim(segments)[1]==2){
+          geom2 <- segments$geometry[1,]
+        }else{
+          geom2 <- NA
+        } 
       }else{
         geom2 <- NA
       }
       
       #unite and store
       if(!is.na(geom1) && !is.na(geom2)){
-        geometries[[i]] <- st_union(geom1, geom2)
+        all_geoms <- c(geom1, geom2)
+        
+        all_geoms <- st_as_sf(all_geoms) %>%
+          st_combine() %>%
+          st_line_merge() %>%
+          st_as_sf()
+        
+        geometries[[i]] <- all_geoms$x %>% 
+          st_transform(crs=4326)
       }
       if(is.na(geom1) && !is.na(geom2)){
-        geometries[[i]] <- geom2
+        geometries[[i]] <- geom2 %>% 
+          st_transform(crs=4326)
       }
       if(!is.na(geom1) && is.na(geom2)){
-        geometries[[i]] <- geom1
+        geometries[[i]] <- geom1 %>% 
+          st_transform(crs=4326)
+      }
+      if(is.na(geom1) && is.na(geom2)){
+        geometries[[i]] <- st_sfc()
       }
     }
   }
 
   #option 3: early segment includes multiple full and partial 2024 segments
   if (!dim(found_row)[1]==1 && !length(range)==0 && range>1) {
+    print("c")
     middle_rows <- DNIT_2024_amazon_paved_010BTO[(as.numeric(lowest_row_index)+1):(as.numeric(highest_row_index)-1),]
+    middle_rows_trans <- middle_rows %>% 
+      st_transform(crs=3857)
     #print(middle_rows)
-  }
+    
+    #find ends like option 2
+    #grab portion from first segment (write this into a function?)
+    km_ini_2024 <- lowest_row$KM_INI
+    km_fim_2024 <- lowest_row$KM_FIM
+    start_fraction <- (row_km_ini-km_ini_2024)/(km_fim_2024-km_ini_2024)
+    
+    if(start_fraction < 1){
+      segments <- linestring_one_split_function(start_fraction, lowest_row)
+      
+      if(dim(segments)[1]==2){
+        geom1 <- segments$geometry[2,]
+      }else{
+        geom1 <- NA
+      } 
+    }else{
+      geom1 <- NA
+    }
+    
+    #grab portion from second segment
+    km_ini_2024 <- highest_row$KM_INI
+    km_fim_2024 <- highest_row$KM_FIM
+    end_fraction <- (row_km_fim-km_ini_2024)/(km_fim_2024-km_ini_2024)
+    
+    if(end_fraction < 1){
+      segments <- linestring_one_split_function(end_fraction, highest_row)
+      
+      if(dim(segments)[1]==2){
+        geom2 <- segments$geometry[1,]
+      }else{
+        geom2 <- NA
+      } 
+    }else{
+      geom2 <- NA
+    }
+    
+    #unite and store
+    if(!is.na(geom1) && !is.na(geom2)){
+      all_geoms <- c(geom1, geom2,middle_rows_trans$geometry)
 
-  
+      all_geoms <- st_as_sf(all_geoms) %>%
+        st_combine() %>%
+        st_line_merge() %>%
+        st_as_sf()
+      
+      geometries[[i]] <- all_geoms$x %>% 
+        st_transform(crs=4326)
+    }
+    if(is.na(geom1) && !is.na(geom2)){
+      all_geoms <- c(geom2, middle_rows_trans$geometry)
+      
+      all_geoms <- st_as_sf(all_geoms) %>%
+        st_combine() %>%
+        st_line_merge() %>%
+        st_as_sf()
+      
+      geometries[[i]] <- all_geoms$x %>% 
+        st_transform(crs=4326)
+    }
+    if(!is.na(geom1) && is.na(geom2)){
+      all_geoms <- c(geom1, middle_rows_trans$geometry)
+      
+      all_geoms <- st_as_sf(all_geoms) %>%
+        st_combine() %>%
+        st_line_merge() %>%
+        st_as_sf()
+      
+      geometries[[i]] <- all_geoms$x %>% 
+        st_transform(crs=4326)    
+    }
+    if(is.na(geom1) && is.na(geom2)){
+      all_geoms <- middle_rows_trans$geometry
+      
+      all_geoms <- st_as_sf(all_geoms) %>%
+        st_combine() %>%
+        st_line_merge() %>%
+        st_as_sf()
+      
+      geometries[[i]] <- all_geoms$x %>% 
+        st_transform(crs=4326)
+    }
+  }
 }
 
+#close but drops empty geometries, start here
+PNV_2012_010BTO_paved_test <- PNV_2012_010BTO_paved
+PNV_2012_010BTO_paved_test$geometry <- do.call(rbind, geometries)
 
+#next steps
+#generalize to a full year
+#run across all years
+
+###################
 #new idea (segment)
+###################
+
 library(sf)
 library(lwgeom)
 
