@@ -135,6 +135,8 @@ DNIT_2024_bool <- st_covers(brazil_amazon,DNIT_2024$geometry, sparse = FALSE)
 DNIT_2024_amazon <- DNIT_2024[DNIT_2024_bool[1,],]
 DNIT_2024_amazon_paved <- DNIT_2024_amazon[which(DNIT_2024_amazon$sg_legenda %in% c('PAV', 'DUP', 'EOD') | DNIT_2024_amazon$sup_est_co %in% c('PAV', 'DUP', 'EOD')),]
 DNIT_2024_reduced <- DNIT_2024_amazon_paved[,c(7,29)]
+DNIT_2024_amazon_paved$name <- substr(DNIT_2024_amazon_paved$vl_codigo,1,6)
+DNIT_2024_amazon_paved$number <- substr(DNIT_2024_amazon_paved$vl_codigo,7,10)
 
 #loop to add 2024 shapefiles to each year (2001-2012)
 years <- 2001:2012
@@ -166,13 +168,13 @@ for (year in years){
 #check km start end to see about some of the jumps 2012 to 2013
 PNV_2012_010BTO <- PNV_2012[which(PNV_2012$name == "010BTO"),]
 PNV_2012_010BTO_paved <- PNV_2012_010BTO[which(PNV_2012_010BTO$SUPERFICIE  %in% c('PAV', 'DUP', 'EOD') | PNV_2012_010BTO$SUP_ESTADUAL %in% c('PAV', 'DUP', 'EOD')),]
-PNV_2012_010BTO_paved <- st_sf(PNV_2012_010BTO_paved, geometry = "geometry") 
+#PNV_2012_010BTO_paved <- st_sf(PNV_2012_010BTO_paved, geometry = "geometry") 
 #DNIT_2012_amazon_paved_filled_010BTO <- DNIT_2012_amazon_paved_filled[which(DNIT_2012_amazon_paved_filled$name == "010BTO"),]
 DNIT_2024_amazon_paved_010BTO <-  DNIT_2024_amazon_paved[which(DNIT_2024_amazon_paved$name == "010BTO"),]
 
 linestring_two_splits_function <- function(start_fraction, end_fraction, row_of_interest) {
   
-  line <- DNIT_2024_amazon_paved_010BTO[which(DNIT_2024_amazon_paved_010BTO$vl_codigo == row_of_interest$vl_codigo),]
+  line <- row_of_interest
   line_proj <- st_transform(line, 3857)
   
   start_point <- st_line_sample(line_proj, sample = start_fraction) %>% st_transform(st_crs(line_proj))
@@ -195,7 +197,7 @@ linestring_two_splits_function <- function(start_fraction, end_fraction, row_of_
 }
 linestring_one_split_function <- function(start_fraction, row_of_interest) {
   
-  line <- DNIT_2024_amazon_paved_010BTO[which(DNIT_2024_amazon_paved_010BTO$vl_codigo == row_of_interest$vl_codigo),]
+  line <- row_of_interest
   line_proj <- st_transform(line, 3857)
   
   start_point <- st_line_sample(line_proj, sample = start_fraction) %>% st_transform(st_crs(line_proj))
@@ -214,201 +216,259 @@ linestring_one_split_function <- function(start_fraction, row_of_interest) {
   return(segments)
 }
 
+#PNV_2012_paved <- PNV_2012[which(PNV_2012$SUPERFICIE  %in% c('PAV', 'DUP', 'EOD') | PNV_2012$SUP_ESTADUAL %in% c('PAV', 'DUP', 'EOD')),]
 
-geometries <- vector("list",length=nrow(PNV_2012_010BTO_paved))
-for (i in 1:dim(PNV_2012_010BTO_paved)[1]){
-  print(i)
+#PNV_paved <- PNV_2012_paved
+PNV_paved_sf <- list()
+
+years <- 2001:2012
+years <- 2002
+
+for (year in years){
+  print(year)
+  old_df_name <- paste0("PNV_", year, sep="")
+  PNV_paved <- get(old_df_name)
+  PNV_paved <- PNV_paved[which(PNV_paved$SUPERFICIE  %in% c('PAV', 'DUP', 'EOD') | PNV_paved$SUP_ESTADUAL %in% c('PAV', 'DUP', 'EOD')),]
   
-  row <- PNV_2012_010BTO_paved[i,]
-  row_km_ini <- as.numeric(row$KM_INI)
-  row_km_fim <- as.numeric(row$KM_FIM)
-  
-  #option 1: early segment is fully inside one 2024 segment
-  found_row <- DNIT_2024_amazon_paved_010BTO[which(DNIT_2024_amazon_paved_010BTO$KM_INI < row_km_ini & 
-                                                     DNIT_2024_amazon_paved_010BTO$KM_FIM > row_km_fim),]
-  if (dim(found_row)[1]==1) {
-    print("a")
+  #big loop to run across years
+  for(k in 1:length(unique(PNV_paved$name))){
+    print(k)
+    name_k <- unique(PNV_paved$name)[k]
+    PNV_w_name_k <- PNV_paved[which(PNV_paved$name == name_k),]
+    DNIT_2024_w_name_k <- DNIT_2024_amazon_paved[which(DNIT_2024_amazon_paved$name == name_k),]
     
-    km_ini_2024 <- found_row$KM_INI
-    km_fim_2024 <- found_row$KM_FIM
-    
-    start_fraction <- (row_km_ini-km_ini_2024)/(km_fim_2024-km_ini_2024)
-    end_fraction <- (row_km_fim-km_ini_2024)/(km_fim_2024-km_ini_2024)
-    
-    segments <- linestring_two_splits_function(start_fraction, end_fraction, found_row)
-    
-    if(dim(segments)[1]==3){
-      geom <- segments$geometry[2,]
-      geometries[[i]] <- geom[[1]]
-    }else{
-      print("(a) error")
-    }
-  }
-  
-  #option 2: early segment spans two 2024 segments but neither completely
-  if (!dim(found_row)[1]==1) {
-    ini_rows <- DNIT_2024_amazon_paved_010BTO[which(DNIT_2024_amazon_paved_010BTO$KM_INI < row_km_ini),]
-    lowest_row <- last(ini_rows)
-    fim_rows <- DNIT_2024_amazon_paved_010BTO[which(DNIT_2024_amazon_paved_010BTO$KM_FIM > row_km_fim),]
-    highest_row <- first(fim_rows)
-    highest_row_index <- which(highest_row$CODIGO == DNIT_2024_amazon_paved_010BTO$CODIGO)
-    lowest_row_index <- which(lowest_row$CODIGO == DNIT_2024_amazon_paved_010BTO$CODIGO)
-    range <- highest_row_index - lowest_row_index
-    #print(range)
-    
-    if(length(range)==0){
-      geometries[[i]] <- st_sfc(st_linestring())[[1]]
-    }
-    
-    if (!length(range)==0 && range==1) {
-      print("b")
+    geometries <- vector("list",length=nrow(PNV_w_name_k))
+    for (i in 1:dim(PNV_w_name_k)[1]){
+      #print(i)
       
-      #grab portion from first segment (write this into a function?)
-      km_ini_2024 <- lowest_row$KM_INI
-      km_fim_2024 <- lowest_row$KM_FIM
-      start_fraction <- (row_km_ini-km_ini_2024)/(km_fim_2024-km_ini_2024)
+      row <- PNV_w_name_k[i,]
+      row_km_ini <- as.numeric(row$KM_INI)
+      row_km_fim <- as.numeric(row$KM_FIM)
       
-      if(start_fraction < 1){
-        segments <- linestring_one_split_function(start_fraction, lowest_row)
+      #option 1: early segment is fully inside one 2024 segment
+      found_row <- DNIT_2024_w_name_k[which(DNIT_2024_w_name_k$KM_INI < row_km_ini & 
+                                              DNIT_2024_w_name_k$KM_FIM > row_km_fim),]
+      if (dim(found_row)[1]==1 &&
+          !(year == 2002 && k == 18)) {
+        #print("a")
         
-        if(dim(segments)[1]==2){
-          geom1 <- segments$geometry[2,]
+        km_ini_2024 <- found_row$KM_INI
+        km_fim_2024 <- found_row$KM_FIM
+        
+        start_fraction <- (row_km_ini-km_ini_2024)/(km_fim_2024-km_ini_2024)
+        end_fraction <- (row_km_fim-km_ini_2024)/(km_fim_2024-km_ini_2024)
+        
+        segments <- linestring_two_splits_function(start_fraction, end_fraction, found_row)
+        
+        if(dim(segments)[1]==3){
+          geom <- segments$geometry[2,]
+          geometries[[i]] <- geom[[1]]
+        }else{
+          print("(a) error")
+        }
+      }
+      
+      #option 2: early segment spans two 2024 segments but neither completely
+      if (!dim(found_row)[1]==1) {
+        ini_rows <- DNIT_2024_w_name_k[which(DNIT_2024_w_name_k$KM_INI < row_km_ini),]
+        lowest_row <- last(ini_rows)
+        fim_rows <- DNIT_2024_w_name_k[which(DNIT_2024_w_name_k$KM_FIM > row_km_fim),]
+        highest_row <- first(fim_rows)
+        highest_row_index <- which(highest_row$CODIGO == DNIT_2024_w_name_k$CODIGO)
+        lowest_row_index <- which(lowest_row$CODIGO == DNIT_2024_w_name_k$CODIGO)
+        range <- highest_row_index - lowest_row_index
+        #print(range)
+        
+        #option 2.1: check edge case where no matches at all
+        if(length(range)==0){
+          geometries[[i]] <- st_sfc(st_linestring())[[1]]
+        }
+        
+        #option 2.2: check edge case where perfectly matches
+        if(!length(range)==0 && !length(which(DNIT_2024_w_name_k$KM_INI == row_km_ini))==0 &&
+           !length(which(DNIT_2024_w_name_k$KM_FIM == row_km_fim))==0 &&
+           which(DNIT_2024_w_name_k$KM_INI == row_km_ini) == which(DNIT_2024_w_name_k$KM_FIM == row_km_fim)){
+          perfect_match_index <- which(DNIT_2024_w_name_k$KM_FIM == row_km_fim)
+          geometries[[i]] <- st_geometry(DNIT_2024_w_name_k[perfect_match_index,'geometry'])[[1]]
+        }
+      
+        
+        if (!length(range)==0 && range==1 &&
+            !(year == 2002 && k == 18)) {
+          #print("b")
+          
+          #grab portion from first segment (write this into a function?)
+          km_ini_2024 <- lowest_row$KM_INI
+          km_fim_2024 <- lowest_row$KM_FIM
+          start_fraction <- (row_km_ini-km_ini_2024)/(km_fim_2024-km_ini_2024)
+          
+          if(start_fraction < 1){
+            segments <- linestring_one_split_function(start_fraction, lowest_row)
+            
+            if(dim(segments)[1]==2){
+              geom1 <- segments$geometry[2,]
+            }else{
+              geom1 <- NA
+            } 
+          }else{
+            geom1 <- NA
+          }
+          
+          #grab portion from second segment
+          km_ini_2024 <- highest_row$KM_INI
+          km_fim_2024 <- highest_row$KM_FIM
+          end_fraction <- (row_km_fim-km_ini_2024)/(km_fim_2024-km_ini_2024)
+          
+          if(end_fraction < 1){
+            segments <- linestring_one_split_function(end_fraction, highest_row)
+            
+            if(dim(segments)[1]==2){
+              geom2 <- segments$geometry[1,]
+            }else{
+              geom2 <- NA
+            } 
+          }else{
+            geom2 <- NA
+          }
+          
+          #unite and store
+          if(!is.na(geom1) && !is.na(geom2)){
+            all_geoms <- c(geom1, geom2)
+            
+            all_geoms <- st_as_sf(all_geoms) %>%
+              st_combine() %>%
+              st_line_merge()
+            
+            geometries[[i]] <- all_geoms[[1]]
+          }
+          if(is.na(geom1) && !is.na(geom2)){
+            geometries[[i]] <- geom2[[1]]
+          }
+          if(!is.na(geom1) && is.na(geom2)){
+            geometries[[i]] <- geom1[[1]]
+          }
+          if(is.na(geom1) && is.na(geom2)){
+            geometries[[i]] <- st_sfc(st_linestring())[[1]]
+          }
+        }
+      }
+      
+      #option 3: early segment includes multiple full and partial 2024 segments
+      if (!dim(found_row)[1]==1 && !length(range)==0 && range>1 &&
+          (length(which(DNIT_2024_w_name_k$KM_INI == row_km_ini))==0 ||
+           length(which(DNIT_2024_w_name_k$KM_FIM == row_km_fim))==0) &&
+          !(year == 2002 && k == 18)) {
+        #print("c")
+        middle_rows <- DNIT_2024_w_name_k[(as.numeric(lowest_row_index)+1):(as.numeric(highest_row_index)-1),]
+        middle_rows_trans <- middle_rows %>% 
+          st_transform(crs=3857)
+        #print(middle_rows)
+        
+        #find ends like option 2
+        #grab portion from first segment
+        km_ini_2024 <- lowest_row$KM_INI
+        km_fim_2024 <- lowest_row$KM_FIM
+        start_fraction <- (row_km_ini-km_ini_2024)/(km_fim_2024-km_ini_2024)
+        
+        if(start_fraction < 1){
+          segments <- linestring_one_split_function(start_fraction, lowest_row)
+          
+          if(dim(segments)[1]==2){
+            geom1 <- segments$geometry[2,]
+          }else{
+            geom1 <- NA
+          } 
         }else{
           geom1 <- NA
-        } 
-      }else{
-        geom1 <- NA
-      }
-      
-      #grab portion from second segment
-      km_ini_2024 <- highest_row$KM_INI
-      km_fim_2024 <- highest_row$KM_FIM
-      end_fraction <- (row_km_fim-km_ini_2024)/(km_fim_2024-km_ini_2024)
-      
-      if(end_fraction < 1){
-        segments <- linestring_one_split_function(end_fraction, highest_row)
+        }
         
-        if(dim(segments)[1]==2){
-          geom2 <- segments$geometry[1,]
+        #grab portion from second segment
+        km_ini_2024 <- highest_row$KM_INI
+        km_fim_2024 <- highest_row$KM_FIM
+        end_fraction <- (row_km_fim-km_ini_2024)/(km_fim_2024-km_ini_2024)
+        
+        if(end_fraction < 1){
+          segments <- linestring_one_split_function(end_fraction, highest_row)
+          
+          if(dim(segments)[1]==2){
+            geom2 <- segments$geometry[1,]
+          }else{
+            geom2 <- NA
+          } 
         }else{
           geom2 <- NA
-        } 
-      }else{
-        geom2 <- NA
-      }
-      
-      #unite and store
-      if(!is.na(geom1) && !is.na(geom2)){
-        all_geoms <- c(geom1, geom2)
+        }
         
-        all_geoms <- st_as_sf(all_geoms) %>%
-          st_combine() %>%
-          st_line_merge()
-        
-        geometries[[i]] <- all_geoms[[1]]
-      }
-      if(is.na(geom1) && !is.na(geom2)){
-        geometries[[i]] <- geom2[[1]]
-      }
-      if(!is.na(geom1) && is.na(geom2)){
-        geometries[[i]] <- geom1[[1]]
-      }
-      if(is.na(geom1) && is.na(geom2)){
-        geometries[[i]] <- st_sfc(st_linestring())[[1]]
+        #unite and store
+        if(!is.na(geom1) && !is.na(geom2)){
+          all_geoms <- c(geom1, geom2, middle_rows_trans$geometry)
+          
+          all_geoms <- st_as_sf(all_geoms) %>%
+            st_combine() %>%
+            st_line_merge()
+          
+          geometries[[i]] <- all_geoms[[1]]
+        }
+        if(is.na(geom1) && !is.na(geom2)){
+          all_geoms <- c(geom2, middle_rows_trans$geometry)
+          
+          all_geoms <- st_as_sf(all_geoms) %>%
+            st_combine() %>%
+            st_line_merge()
+          
+          geometries[[i]] <- all_geoms[[1]]
+        }
+        if(!is.na(geom1) && is.na(geom2)){
+          all_geoms <- c(geom1, middle_rows_trans$geometry)
+          
+          all_geoms <- st_as_sf(all_geoms) %>%
+            st_combine() %>%
+            st_line_merge()
+          
+          geometries[[i]] <- all_geoms[[1]] 
+        }
+        if(is.na(geom1) && is.na(geom2)){
+          all_geoms <- middle_rows_trans$geometry
+          
+          all_geoms <- st_as_sf(all_geoms) %>%
+            st_combine() %>%
+            st_line_merge() 
+          
+          geometries[[i]] <- all_geoms[[1]]
+        }
       }
     }
+    
+    PNV_w_name_k_sf <- st_as_sf(PNV_w_name_k, 
+                                geometry=st_sfc(geometries, crs=3857)) %>% st_transform(crs=4326)
+    PNV_paved_sf[[k]] <- PNV_w_name_k_sf
   }
-
-  #option 3: early segment includes multiple full and partial 2024 segments
-  if (!dim(found_row)[1]==1 && !length(range)==0 && range>1) {
-    print("c")
-    middle_rows <- DNIT_2024_amazon_paved_010BTO[(as.numeric(lowest_row_index)+1):(as.numeric(highest_row_index)-1),]
-    middle_rows_trans <- middle_rows %>% 
-      st_transform(crs=3857)
-    #print(middle_rows)
-    
-    #find ends like option 2
-    #grab portion from first segment (write this into a function?)
-    km_ini_2024 <- lowest_row$KM_INI
-    km_fim_2024 <- lowest_row$KM_FIM
-    start_fraction <- (row_km_ini-km_ini_2024)/(km_fim_2024-km_ini_2024)
-    
-    if(start_fraction < 1){
-      segments <- linestring_one_split_function(start_fraction, lowest_row)
-      
-      if(dim(segments)[1]==2){
-        geom1 <- segments$geometry[2,]
-      }else{
-        geom1 <- NA
-      } 
-    }else{
-      geom1 <- NA
-    }
-    
-    #grab portion from second segment
-    km_ini_2024 <- highest_row$KM_INI
-    km_fim_2024 <- highest_row$KM_FIM
-    end_fraction <- (row_km_fim-km_ini_2024)/(km_fim_2024-km_ini_2024)
-    
-    if(end_fraction < 1){
-      segments <- linestring_one_split_function(end_fraction, highest_row)
-      
-      if(dim(segments)[1]==2){
-        geom2 <- segments$geometry[1,]
-      }else{
-        geom2 <- NA
-      } 
-    }else{
-      geom2 <- NA
-    }
-    
-    #unite and store
-    if(!is.na(geom1) && !is.na(geom2)){
-      all_geoms <- c(geom1, geom2, middle_rows_trans$geometry)
-
-      all_geoms <- st_as_sf(all_geoms) %>%
-        st_combine() %>%
-        st_line_merge()
-      
-      geometries[[i]] <- all_geoms[[1]]
-    }
-    if(is.na(geom1) && !is.na(geom2)){
-      all_geoms <- c(geom2, middle_rows_trans$geometry)
-      
-      all_geoms <- st_as_sf(all_geoms) %>%
-        st_combine() %>%
-        st_line_merge()
-      
-      geometries[[i]] <- all_geoms[[1]]
-    }
-    if(!is.na(geom1) && is.na(geom2)){
-      all_geoms <- c(geom1, middle_rows_trans$geometry)
-      
-      all_geoms <- st_as_sf(all_geoms) %>%
-        st_combine() %>%
-        st_line_merge()
-      
-      geometries[[i]] <- all_geoms[[1]] 
-    }
-    if(is.na(geom1) && is.na(geom2)){
-      all_geoms <- middle_rows_trans$geometry
-      
-      all_geoms <- st_as_sf(all_geoms) %>%
-        st_combine() %>%
-        st_line_merge() 
-      
-      geometries[[i]] <- all_geoms[[1]]
-    }
-  }
+  
+  PNV_paved_sf_unlisted <- do.call(rbind, PNV_paved_sf)
+  new_df_name <- paste0("DNIT_", year, "_amazon_paved_filled", sep="")
+  assign(new_df_name, PNV_paved_sf_unlisted)
 }
 
-PNV_2012_010BTO_paved_sf <- st_as_sf(PNV_2012_010BTO_paved, geometry=st_sfc(geometries, crs=3857)) %>% 
-  st_transform(crs=4326)
-mapview(PNV_2012_010BTO_paved_sf) 
+#check
+mapview(DNIT_2001_amazon_paved_filled)
+mapview(DNIT_2002_amazon_paved_filled)
+mapview(DNIT_2003_amazon_paved_filled)
+mapview(DNIT_2004_amazon_paved_filled)
+mapview(DNIT_2005_amazon_paved_filled)
+mapview(DNIT_2006_amazon_paved_filled)
+mapview(DNIT_2007_amazon_paved_filled)
+mapview(DNIT_2008_amazon_paved_filled)
+mapview(DNIT_2009_amazon_paved_filled)
+mapview(DNIT_2010_amazon_paved_filled)
+mapview(DNIT_2011_amazon_paved_filled)
+mapview(DNIT_2012_amazon_paved_filled)
 
-#next steps
-#generalize to a full year
-#run across all years
+#store
+for (year in years){
+  df_name <- paste0("DNIT_", year, "_amazon_paved_filled", sep="")
+  df <- get(df_name)
+  st_write(df, paste0("~/Desktop/doctorate/ch3 amazon network/data/DNIT_processed/DNIT_yearly_base_maps/", "DNIT_", year, "_base_map.shp", sep=""))
+}
 
 ###################
 #new idea (segment)
