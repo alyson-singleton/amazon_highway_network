@@ -222,7 +222,7 @@ linestring_one_split_function <- function(start_fraction, row_of_interest) {
 PNV_paved_sf <- list()
 
 years <- 2001:2012
-years <- 2002
+#years <- 2002
 
 for (year in years){
   print(year)
