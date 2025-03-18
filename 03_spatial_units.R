@@ -2,26 +2,9 @@
 # load data from 2001 and 2024 (bounds of study period) #
 #########################################################
 
-PNV_2001 <- read.csv("~/Desktop/doctorate/ch3 amazon network/data/DNIT_historical/PNV2001_UTF-8.csv", header=T, stringsAsFactors=FALSE)
-PNV_2001 <- PNV_2001[!is.na(PNV_2001$BR),]
-PNV_2001$vl_codigo <- PNV_2001$CODIGO
+DNIT_2001_amazon_paved_filled <- st_read(paste0("~/Desktop/doctorate/ch3 amazon network/data/DNIT_processed/DNIT_yearly_base_maps/", "DNIT_", "2001", "_base_map.shp", sep=""))
+DNIT_2024_amazon_paved_filled <- st_read(paste0("~/Desktop/doctorate/ch3 amazon network/data/DNIT_processed/DNIT_yearly_base_maps/", "DNIT_", "2024", "_base_map.shp", sep=""))
 
-DNIT_2024 <- st_read("~/Desktop/doctorate/ch3 amazon network/data/DNIT/202410A/SNV_202410A.shp")
-DNIT_2024$geometry <- st_transform(st_zm(DNIT_2024$geometry), 4326)
-
-#join to add shapefiles to 2001
-full_join <- full_join(PNV_2001,DNIT_2024, by=c("vl_codigo"))
-inner_join <- inner_join(PNV_2001,DNIT_2024, by=c("vl_codigo"))
-left_join <- left_join(PNV_2001,DNIT_2024, by=c("vl_codigo"))
-
-joined_sf <- st_as_sf(inner_join)
-joined_sf_bool <- st_covers(brazil_amazon,joined_sf$geometry, sparse = FALSE)
-joined_sf_amazon <- joined_sf[joined_sf_bool[1,],]
-joined_sf_amazon_paved <- joined_sf_amazon[which(joined_sf_amazon$SUPERFICIE == "PAV"),]
-DNIT_2001_amazon_paved <- joined_sf_amazon_paved
-
-mapview(joined_sf_amazon)
-mapview(joined_sf_amazon_paved)
 
 ##################################################
 # build sections of road for difference workflow #

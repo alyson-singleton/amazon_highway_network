@@ -139,39 +139,6 @@ DNIT_2024_amazon_paved$name <- substr(DNIT_2024_amazon_paved$vl_codigo,1,6)
 DNIT_2024_amazon_paved$number <- substr(DNIT_2024_amazon_paved$vl_codigo,7,10)
 
 #loop to add 2024 shapefiles to each year (2001-2012)
-years <- 2001:2012
-year <- 2012
-for (year in years){
-  print(year)
-  
-  old_df_name <- paste0("PNV_", year, sep="")
-  df <- get(old_df_name)
-  
-  joined_left_sf <- left_join(df,DNIT_2024_reduced, by=c("vl_codigo")) %>% st_as_sf()
-  joined_sf_bool <- st_covers(brazil_amazon,joined_left_sf$geometry, sparse = FALSE)
-  joined_sf_amazon <- joined_left_sf[joined_sf_bool[1,],]
-  #NOTE: write now ive written it like we don't care about duplicated v non duplicated, just PAVED
-  joined_sf_amazon_paved <- joined_sf_amazon[which(joined_sf_amazon$SUPERFICIE  %in% c('PAV', 'DUP', 'EOD') | joined_sf_amazon$SUP_ESTADUAL %in% c('PAV', 'DUP', 'EOD')),]
-  
-  new_df_name <- paste0("DNIT_", year, "_amazon_paved", sep="")
-  assign(new_df_name, joined_sf_amazon_paved)
-}
-
-#add another step that recovers PAV sections that dont have a perfect vl_codigo match
-
-#go through by name
-#find any left out that are PAV/DUP/EOD
-#find overlap using km start and finish, if close enough, add in the previously excluded row from 2024
-#rename/tag as needed
-
-#start with one example, 010BTO
-#check km start end to see about some of the jumps 2012 to 2013
-PNV_2012_010BTO <- PNV_2012[which(PNV_2012$name == "010BTO"),]
-PNV_2012_010BTO_paved <- PNV_2012_010BTO[which(PNV_2012_010BTO$SUPERFICIE  %in% c('PAV', 'DUP', 'EOD') | PNV_2012_010BTO$SUP_ESTADUAL %in% c('PAV', 'DUP', 'EOD')),]
-#PNV_2012_010BTO_paved <- st_sf(PNV_2012_010BTO_paved, geometry = "geometry") 
-#DNIT_2012_amazon_paved_filled_010BTO <- DNIT_2012_amazon_paved_filled[which(DNIT_2012_amazon_paved_filled$name == "010BTO"),]
-DNIT_2024_amazon_paved_010BTO <-  DNIT_2024_amazon_paved[which(DNIT_2024_amazon_paved$name == "010BTO"),]
-
 linestring_two_splits_function <- function(start_fraction, end_fraction, row_of_interest) {
   
   line <- row_of_interest
@@ -216,11 +183,7 @@ linestring_one_split_function <- function(start_fraction, row_of_interest) {
   return(segments)
 }
 
-#PNV_2012_paved <- PNV_2012[which(PNV_2012$SUPERFICIE  %in% c('PAV', 'DUP', 'EOD') | PNV_2012$SUP_ESTADUAL %in% c('PAV', 'DUP', 'EOD')),]
-
-#PNV_paved <- PNV_2012_paved
 PNV_paved_sf <- list()
-
 years <- 2001:2012
 #years <- 2002
 
@@ -445,8 +408,10 @@ for (year in years){
   }
   
   PNV_paved_sf_unlisted <- do.call(rbind, PNV_paved_sf)
+  df_bool <- st_covers(brazil_amazon,PNV_paved_sf_unlisted$geometry, sparse = FALSE)
+  df_amazon <- PNV_paved_sf_unlisted[df_bool[1,],]
   new_df_name <- paste0("DNIT_", year, "_amazon_paved_filled", sep="")
-  assign(new_df_name, PNV_paved_sf_unlisted)
+  assign(new_df_name, df_amazon)
 }
 
 #check
@@ -467,56 +432,38 @@ mapview(DNIT_2012_amazon_paved_filled)
 for (year in years){
   df_name <- paste0("DNIT_", year, "_amazon_paved_filled", sep="")
   df <- get(df_name)
-  st_write(df, paste0("~/Desktop/doctorate/ch3 amazon network/data/DNIT_processed/DNIT_yearly_base_maps/", "DNIT_", year, "_base_map.shp", sep=""))
+  st_write(df_amazon, paste0("~/Desktop/doctorate/ch3 amazon network/data/DNIT_processed/DNIT_yearly_base_maps/", "DNIT_", year, "_base_map.shp", sep=""))
 }
 
-###################
-#new idea (segment)
-###################
+#load
+DNIT_2001_amazon_paved_filled <- st_read(paste0("~/Desktop/doctorate/ch3 amazon network/data/DNIT_processed/DNIT_yearly_base_maps/", "DNIT_", "2001", "_base_map.shp", sep=""))
+DNIT_2001_amazon_paved_filled <- st_read(paste0("~/Desktop/doctorate/ch3 amazon network/data/DNIT_processed/DNIT_yearly_base_maps/", "DNIT_", "2001", "_base_map.shp", sep=""))
+DNIT_2012_amazon_paved_filled <- st_read(paste0("~/Desktop/doctorate/ch3 amazon network/data/DNIT_processed/DNIT_yearly_base_maps/", "DNIT_", "2001", "_base_map.shp", sep=""))
 
-library(sf)
-library(lwgeom)
+#######################################
+# SCRATCH
+#######################################
 
-km_ini_2012 <- 412.4
-km_fim_2012 <- 423.9
-
-km_ini_2024 <- 408.8
-km_fim_2024 <- 448.3
-
-start_fraction <- (km_ini_2012-km_ini_2024)/(km_fim_2024-km_ini_2024)
-end_fraction <- (km_fim_2012-km_ini_2024)/(km_fim_2024-km_ini_2024)
-
-line <- DNIT_2024_amazon_paved_010BTO[which(DNIT_2024_amazon_paved_010BTO$vl_codigo =="010BTO0276"),]
-line_proj <- st_transform(line, 3857)
-
-start_point <- st_line_sample(line_proj, sample = start_fraction) %>% st_transform(st_crs(line_proj))
-end_point <- st_line_sample(line_proj, sample = end_fraction) %>% st_transform(st_crs(line_proj))
+#join w 2024 by vl_codigo
+years <- 2001:2012
+year <- 2012
+for (year in years){
+  print(year)
   
-split_points <- st_union(start_point,end_point)
+  old_df_name <- paste0("PNV_", year, sep="")
+  df <- get(old_df_name)
+  
+  joined_left_sf <- left_join(df,DNIT_2024_reduced, by=c("vl_codigo")) %>% st_as_sf()
+  joined_sf_bool <- st_covers(brazil_amazon,joined_left_sf$geometry, sparse = FALSE)
+  joined_sf_amazon <- joined_left_sf[joined_sf_bool[1,],]
+  #NOTE: write now ive written it like we don't care about duplicated v non duplicated, just PAVED
+  joined_sf_amazon_paved <- joined_sf_amazon[which(joined_sf_amazon$SUPERFICIE  %in% c('PAV', 'DUP', 'EOD') | joined_sf_amazon$SUP_ESTADUAL %in% c('PAV', 'DUP', 'EOD')),]
+  
+  new_df_name <- paste0("DNIT_", year, "_amazon_paved", sep="")
+  assign(new_df_name, joined_sf_amazon_paved)
+}
 
-#make points tiny lines to split (points dont work)
-blades <- split_points %>%
-  st_cast("POINT") %>%
-  st_coordinates() %>%
-  asplit(1) %>%
-  lapply(function(x) rbind(x + c(0, -1e-6), x + c(0, 1e-6))) %>%
-  st_multilinestring() %>%
-  st_sfc(crs = 3857)
-
-segments <- st_split(line_proj, blades) %>% 
-  st_collection_extract("LINESTRING")
-
-segments
-
-# plot
-plot(line_proj, col = "grey")
-plot(start_point, col = "red", add = TRUE)
-plot(segments$geometry, col = rainbow(3), lwd = 3)
-
-#######################################
-# fill in additional spottiness
-#######################################
-
+#fill in additional spottiness
 join_right_2001 <- right_join(PNV_2001,DNIT_2024_reduced, by=c("vl_codigo")) #is DNIT_2024_reduced just amazon roads here? can PNV_2001 be DNIT_2001_amazon_paved?
 join_inner_2001 <- inner_join(PNV_2001,DNIT_2024_reduced, by=c("vl_codigo"))
 
@@ -547,98 +494,9 @@ for (year in years){
   assign(new_df_name, df)
 }
 
-#check
-mapview(DNIT_2001_amazon_paved_filled)
-mapview(DNIT_2002_amazon_paved_filled)
-mapview(DNIT_2003_amazon_paved_filled)
-mapview(DNIT_2004_amazon_paved_filled)
-mapview(DNIT_2005_amazon_paved_filled)
-mapview(DNIT_2006_amazon_paved_filled)
-mapview(DNIT_2007_amazon_paved_filled)
-mapview(DNIT_2008_amazon_paved_filled)
-mapview(DNIT_2009_amazon_paved_filled)
-mapview(DNIT_2010_amazon_paved_filled)
-mapview(DNIT_2011_amazon_paved_filled)
-mapview(DNIT_2012_amazon_paved_filled)
-
 #store
 for (year in years){
   df_name <- paste0("DNIT_", year, "_amazon_paved_filled", sep="")
   df <- get(df_name)
   st_write(df, paste0("~/Desktop/doctorate/ch3 amazon network/data/DNIT_processed/DNIT_yearly_base_maps/", "DNIT_", year, "_base_map.shp", sep=""))
 }
-
-#######################################
-############### SCRATCH ############### 
-#######################################
-
-# main concern 1: some 2001 codes dont match 2024 (~700)
-# main concern 2: lots of spottiness that doesn't seem to reflect actual paving status
-# (check if these issues are the same? missing bits are the spots?)
-
-#2001 no match
-codes_w_match <- unique(join_left_2001$vl_codigo)[unique(join_left_2001$vl_codigo) %in% unique(join_inner_2001$vl_codigo)]
-codes_wo_match <- unique(join_left_2001$vl_codigo)[!unique(join_left_2001$vl_codigo) %in% unique(join_inner_2001$vl_codigo)]
-rows_wo_match <- join_left_2001[which(join_left_2001$vl_codigo %in% codes_wo_match),]
-join_left_2001_match_col <- join_left_2001 %>%
-  mutate(match = join_left_2001$vl_codigo %in% codes_w_match)
-join_left_2001_match_col <- join_left_2001_match_col[,c(1:3,15,4:14)]  
-
-#2024 no match
-codes_w_match <- unique(join_right_2001$vl_codigo)[unique(join_right_2001$vl_codigo) %in% unique(join_inner_2001$vl_codigo)]
-codes_wo_match <- unique(join_right_2001$vl_codigo)[!unique(join_right_2001$vl_codigo) %in% unique(join_inner_2001$vl_codigo)]
-rows_wo_match <- join_right_2001[which(join_right_2001$vl_codigo %in% codes_wo_match),]
-join_right_2001_match_col <- join_right_2001 %>%
-  mutate(match = join_right_2001$vl_codigo %in% codes_w_match)
-join_right_2001_match_col <- join_right_2001_match_col[,c(1:3,15,4:14)]
-
-# let's try to remedy one road we know was fully paved in 2001: 364BRO
-#which have no match in 2001
-join_left_2001_match_col$name <- substr(join_left_2001_match_col$vl_codigo,1,6)
-join_left_2001_match_col$number <- substr(join_left_2001_match_col$vl_codigo,7,10)
-join_left_2001_match_col <- join_left_2001_match_col[which(join_left_2001_match_col$SUPERFICIE %in% c("PAV","DUP")),] %>% st_as_sf()
-
-all_2001_364BRO <- join_left_2001_match_col[which(join_left_2001_match_col$name == "364BRO"),]
-mapview(all_2001_364BRO)
-false_2001_364BRO <- all_2001_364BRO[which(all_2001_364BRO$match == FALSE),]
-
-#which have no match in 2024
-join_right_2001_match_col$name <- substr(join_right_2001_match_col$vl_codigo,1,6)
-join_right_2001_match_col$number <- substr(join_right_2001_match_col$vl_codigo,7,10)
-#join_right_2001_match_col <- join_right_2001_match_col[which(join_right_2001_match_col$SUPERFICIE == "PAV"),] %>% st_as_sf()
-all_2024_364BRO <- join_right_2001_match_col[which(join_right_2001_match_col$name == "010BTO"),] %>% st_as_sf() #look here to see what you are adding
-mapview(all_2024_364BRO)
-false_2024_364BRO <- all_2024_364BRO[which(all_2024_364BRO$match == FALSE),]
-
-#########################################################
-#let's create a filled in, baseline 2001 (our best guess)
-#########################################################
-
-#single example
-all_2001_364BRO_new <- rbind(all_2001_364BRO,false_2024_364BRO)
-mapview(all_2001_364BRO_new)
-
-#list to consider i.e. paved roads in the amazon that have holes in 2001
-DNIT_2001_amazon_paved$name <- substr(DNIT_2001_amazon_paved$vl_codigo,1,6)
-DNIT_2001_amazon_paved$number <- substr(DNIT_2001_amazon_paved$vl_codigo,7,10)
-unique(DNIT_2001_amazon_paved$name)
-
-our_list <- c("364BRO","174BRR","364BMT","163BMT","070BMT","163BMT","153BTO", "010BMA", "230BTO") #unique(DNIT_2001_amazon_paved$name
-#our_list <- unique(DNIT_2001_amazon_paved$name)
-DNIT_2001_amazon_paved_baseline <- DNIT_2001_amazon_paved
-DNIT_2001_amazon_paved_baseline$match <- TRUE
-DNIT_2001_amazon_paved_baseline <- DNIT_2001_amazon_paved_baseline[,c(1:3,17,4:13,15,16,14)]
-for (i in 1:length(our_list)) {
-  print(i)
-  #print(our_list[i])
-  name_i <- our_list[i]
-  all_unmatched_2024_name_i <- join_right_2001_match_col[which(join_right_2001_match_col$name == name_i & join_right_2001_match_col$match == FALSE),] %>% st_as_sf()
-  DNIT_2001_amazon_paved_baseline <- rbind(DNIT_2001_amazon_paved_baseline,all_unmatched_2024_name_i)
-}
-mapview(DNIT_2001_amazon_paved_baseline)
-mapview(DNIT_2001_amazon_paved_baseline_stor)
-mapview(DNIT_2001_amazon_paved)
-mapview(DNIT_2013_amazon_paved)
-mapview(DNIT_2024_amazon_paved)
-
-
