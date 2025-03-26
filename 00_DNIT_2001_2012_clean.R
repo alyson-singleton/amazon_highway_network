@@ -427,18 +427,19 @@ mapview(DNIT_2009_amazon_paved_filled)
 mapview(DNIT_2010_amazon_paved_filled)
 mapview(DNIT_2011_amazon_paved_filled)
 mapview(DNIT_2012_amazon_paved_filled)
+mapview(DNIT_2013_amazon_paved)
 
 #store
 for (year in years){
   df_name <- paste0("DNIT_", year, "_amazon_paved_filled", sep="")
   df <- get(df_name)
-  st_write(df_amazon, paste0("~/Desktop/doctorate/ch3 amazon network/data/DNIT_processed/DNIT_yearly_base_maps/", "DNIT_", year, "_base_map.shp", sep=""))
+  st_write(df, paste0("~/Desktop/doctorate/ch3 amazon network/data/DNIT_processed/DNIT_yearly_base_maps/", "DNIT_", year, "_base_map.shp", sep=""))
 }
 
 #load
-DNIT_2001_amazon_paved_filled <- st_read(paste0("~/Desktop/doctorate/ch3 amazon network/data/DNIT_processed/DNIT_yearly_base_maps/", "DNIT_", "2001", "_base_map.shp", sep=""))
-DNIT_2001_amazon_paved_filled <- st_read(paste0("~/Desktop/doctorate/ch3 amazon network/data/DNIT_processed/DNIT_yearly_base_maps/", "DNIT_", "2001", "_base_map.shp", sep=""))
-DNIT_2012_amazon_paved_filled <- st_read(paste0("~/Desktop/doctorate/ch3 amazon network/data/DNIT_processed/DNIT_yearly_base_maps/", "DNIT_", "2001", "_base_map.shp", sep=""))
+DNIT_2001_base_map <- st_read(paste0("~/Desktop/doctorate/ch3 amazon network/data/DNIT_processed/DNIT_yearly_base_maps/DNIT_", "2001", "_base_map.shp", sep=""))
+DNIT_2012_amazon_paved_filled <- st_read(paste0("~/Desktop/doctorate/ch3 amazon network/data/DNIT_processed/DNIT_yearly_base_maps/DNIT_", "2012", "_base_map.shp", sep=""))
+DNIT_2018_amazon_paved <- st_read(paste0("~/Desktop/doctorate/ch3 amazon network/data/DNIT_processed/DNIT_yearly_base_maps/DNIT_", "2018", "_base_map.shp", sep=""))
 
 #######################################
 # SCRATCH

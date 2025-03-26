@@ -126,7 +126,7 @@ colnames(DNIT_2024) <- set_colnames
 #######################################
 
 years <- c(2013,2015:2024)
-years<-2013
+#years<-2013
 for (year in years){
   print(year)
   
@@ -143,6 +143,18 @@ for (year in years){
   assign(new_df_name, df_amazon_paved)
 }
 
+#store
+years <- c(2013,2015:2024)
+for (year in years){
+  df_name <- paste0("DNIT_", year, "_amazon_paved", sep="")
+  df <- get(df_name)
+  st_write(df, paste0("~/Desktop/doctorate/ch3 amazon network/data/DNIT_processed/DNIT_yearly_base_maps/", "DNIT_", year, "_base_map.shp", sep=""))
+}
+
+#######################################
+# scratch
+#######################################
+
 #check
 mapview(DNIT_2001_amazon_paved_filled)
 mapview(DNIT_2012_amazon_paved_filled)#**double check jumps from 2012-2013
@@ -157,17 +169,4 @@ mapview(DNIT_2021_amazon_paved)
 mapview(DNIT_2022_amazon_paved)
 mapview(DNIT_2023_amazon_paved)
 mapview(DNIT_2024_amazon_paved)
-
-#store
-years <- c(2013,2015:2024)
-for (year in years){
-  df_name <- paste0("DNIT_", year, "_amazon_paved", sep="")
-  df <- get(df_name)
-  st_write(df, paste0("~/Desktop/doctorate/ch3 amazon network/data/DNIT_processed/DNIT_yearly_base_maps/", "DNIT_", year, "_base_map.shp", sep=""))
-}
-
-#######################################
-# scratch
-#######################################
-
 
