@@ -3,16 +3,11 @@ library(sf)
 library(tidyverse)
 
 ##################################################
-# load in all yearly base maps
-##################################################
-
-
-
-##################################################
 # build sections of road for difference workflow #
 ##################################################
 
-years <- c(2001:2013,2015:2024)
+years <- c(2001:2024)
+#years <- c(2015)
 for (year in years){
   print(year)
   DNIT_year_amazon_paved <- st_read(paste0("~/Desktop/doctorate/ch3 amazon network/data/DNIT_processed/DNIT_yearly_base_maps/", "DNIT_", year, "_base_map.shp", sep=""))
@@ -48,9 +43,9 @@ for (year in years){
   
   DNIT_year_unions <- do.call(rbind, DNIT_year_unions_list)
   
-  #remove specific 242BTO1 duplicate row in 2015
+  #remove specific 210BRR1 (old242BTO1) duplicate row in 2015
   if (year==2015){
-    DNIT_year_unions <- DNIT_year_unions[-c(31),]
+    DNIT_year_unions <- DNIT_year_unions[-c(first(which(DNIT_year_unions$name_section=="210BRR1"))),]
   }
   
   #mapview(DNIT_year_unions, zcol="name")
@@ -72,10 +67,12 @@ mapview(DNIT_2001_unions[which(DNIT_2001_unions$name=="364BAC"),])
 
 # difference loop between two unioned years
 
-years <- c(2001:2013,2015:2024)
+years <- c(2001:2023)
+#years <- c(2015:2016)
 for (year in years){
   year_index <- match(year,years)
   year_plus_one <- years[year_index+1]
+  year_plus_one <- ifelse(year==2023, 2024, year_plus_one)
   DNIT_year1_amazon_paved <- st_read(paste0("~/Desktop/doctorate/ch3 amazon network/data/DNIT_processed/DNIT_unions/", "DNIT_", year_plus_one, "_unions.shp", sep=""))
   DNIT_year2_amazon_paved <- st_read(paste0("~/Desktop/doctorate/ch3 amazon network/data/DNIT_processed/DNIT_unions/", "DNIT_", year, "_unions.shp", sep=""))
   
@@ -99,7 +96,8 @@ for (year in years){
         DNIT_year_int_j <- st_transform(DNIT_year_int_j, 32633)
         if(!is.na(st_is_valid(DNIT_year_int_j))){
           if(dim(st_intersects(DNIT_year_int_i,DNIT_year_int_j))[1]>0){
-            DNIT_year_int_i <- st_difference(DNIT_year_int_i, DNIT_year_int_j)
+            DNIT_year_int_i <- st_difference(DNIT_year_int_i,DNIT_year_int_j)
+            #mapview(DNIT_year_int_i_diff)
           }
         }
       }
@@ -111,7 +109,7 @@ for (year in years){
     }
   }
   difference_geoms$geometry <- st_cast(difference_geoms$geometry, "MULTILINESTRING")
-  st_write(difference_geoms, paste0("~/Desktop/doctorate/ch3 amazon network/data/DNIT_processed/DNIT_differences/DNIT_", year, "_", year_plus_one, "_differences.shp"))
+  st_write(difference_geoms, paste0("~/Desktop/doctorate/ch3 amazon network/data/DNIT_processed/DNIT_differences/DNIT_", year, "_", year_plus_one, "_differences.shp"),append=FALSE)
 }
 
 mapview(difference_geoms)

@@ -126,7 +126,7 @@ colnames(DNIT_2024) <- set_colnames
 #######################################
 
 years <- c(2013,2015:2024)
-#years<-2013
+years <- c(2013,2015)
 for (year in years){
   print(year)
   
@@ -148,7 +148,7 @@ years <- c(2013,2015:2024)
 for (year in years){
   df_name <- paste0("DNIT_", year, "_amazon_paved", sep="")
   df <- get(df_name)
-  st_write(df, paste0("~/Desktop/doctorate/ch3 amazon network/data/DNIT_processed/DNIT_yearly_base_maps/", "DNIT_", year, "_base_map.shp", sep=""))
+  st_write(df, paste0("~/Desktop/doctorate/ch3 amazon network/data/DNIT_processed/DNIT_yearly_base_maps/", "DNIT_", year, "_base_map.shp", sep=""),append=FALSE)
 }
 
 #######################################

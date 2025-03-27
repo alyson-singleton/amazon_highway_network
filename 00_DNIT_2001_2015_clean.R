@@ -124,19 +124,60 @@ PNV_2012$number <- substr(PNV_2012$vl_codigo,7,10)
 PNV_2012 <- PNV_2012[,c(1:2,6:13,16:17,21:24)]
 colnames(PNV_2012) <- colnames(PNV_2009)
 
+#2013
+PNV_2013 <- read_excel("~/Desktop/doctorate/ch3 amazon network/data/DNIT_historical/SNV_2013.xlsx")
+colnames(PNV_2013) <- PNV_2013[2,]
+PNV_2013 <- PNV_2013[-c(1,2),]
+PNV_2013 <- PNV_2013[!is.na(PNV_2013$BR),]
+PNV_2013$VERSAO <- 2013
+PNV_2013$vl_codigo <- PNV_2013$Código
+PNV_2013$name <- substr(PNV_2013$vl_codigo,1,6)
+PNV_2013$number <- substr(PNV_2013$vl_codigo,7,10)
+PNV_2013 <- PNV_2013[,c(1:2,6:13,16:17,20:23)]
+colnames(PNV_2013) <- colnames(PNV_2009)
+
+#2014
+PNV_2014 <- read_excel("~/Desktop/doctorate/ch3 amazon network/data/DNIT_historical/SNV_2014.xlsx")
+colnames(PNV_2014) <- PNV_2014[2,]
+PNV_2014 <- PNV_2014[-c(1,2),]
+PNV_2014 <- PNV_2014[!is.na(PNV_2014$BR),]
+PNV_2014$VERSAO <- 2014
+PNV_2014$vl_codigo <- PNV_2014$Código
+PNV_2014$name <- substr(PNV_2014$vl_codigo,1,6)
+PNV_2014$number <- substr(PNV_2014$vl_codigo,7,10)
+PNV_2014 <- PNV_2014[,c(1:2,6:13,16:17,22:25)]
+colnames(PNV_2014) <- colnames(PNV_2009)
+
+#2015
+PNV_2015 <- read_excel("~/Desktop/doctorate/ch3 amazon network/data/DNIT_historical/SNV_201503A.xls")
+colnames(PNV_2015) <- PNV_2015[2,]
+PNV_2015 <- PNV_2015[-c(1,2),]
+PNV_2015 <- PNV_2015[!is.na(PNV_2015$BR),]
+PNV_2015$VERSAO <- 2015
+PNV_2015$vl_codigo <- PNV_2015$Código
+PNV_2015$name <- substr(PNV_2015$vl_codigo,1,6)
+PNV_2015$number <- substr(PNV_2015$vl_codigo,7,10)
+PNV_2015 <- PNV_2015[,c(1:2,6:13,16:17,25:28)]
+colnames(PNV_2015) <- colnames(PNV_2009)
+
 #######################################
 # add spatial data by linking to 2024
 #######################################
 
 #2024
 DNIT_2024 <- st_read("~/Desktop/doctorate/ch3 amazon network/data/DNIT/202410A/SNV_202410A.shp")
+DNIT_2024$VERSAO <- 2024
+colnames(DNIT_2024)[7] <- "codigo"
+DNIT_2024$vl_codigo <- DNIT_2024$codigo
+DNIT_2024$name <- substr(DNIT_2024$vl_codigo,1,6)
+DNIT_2024$number <- substr(DNIT_2024$vl_codigo,7,10)
+DNIT_2024 <- DNIT_2024[,c(2:3,7:12,24,16,19:20,30:33,29)]
+colnames(DNIT_2024) <- set_colnames
+
 DNIT_2024$geometry <- st_transform(st_zm(DNIT_2024$geometry), 4326)
 DNIT_2024_bool <- st_covers(brazil_amazon,DNIT_2024$geometry, sparse = FALSE)
 DNIT_2024_amazon <- DNIT_2024[DNIT_2024_bool[1,],]
-DNIT_2024_amazon_paved <- DNIT_2024_amazon[which(DNIT_2024_amazon$sg_legenda %in% c('PAV', 'DUP', 'EOD') | DNIT_2024_amazon$sup_est_co %in% c('PAV', 'DUP', 'EOD')),]
-DNIT_2024_reduced <- DNIT_2024_amazon_paved[,c(7,29)]
-DNIT_2024_amazon_paved$name <- substr(DNIT_2024_amazon_paved$vl_codigo,1,6)
-DNIT_2024_amazon_paved$number <- substr(DNIT_2024_amazon_paved$vl_codigo,7,10)
+DNIT_2024_amazon_paved <- DNIT_2024_amazon[which(DNIT_2024_amazon$SUPERFICIE %in% c('PAV', 'DUP', 'EOD') | DNIT_2024_amazon$SUP_ESTADUAL %in% c('PAV', 'DUP', 'EOD')),]
 
 #loop to add 2024 shapefiles to each year (2001-2012)
 linestring_two_splits_function <- function(start_fraction, end_fraction, row_of_interest) {
@@ -184,8 +225,8 @@ linestring_one_split_function <- function(start_fraction, row_of_interest) {
 }
 
 PNV_paved_sf <- list()
-years <- 2001:2012
-#years <- 2002
+years <- 2001:2015
+#years <- 2013:2015
 
 for (year in years){
   print(year)
@@ -427,13 +468,15 @@ mapview(DNIT_2009_amazon_paved_filled)
 mapview(DNIT_2010_amazon_paved_filled)
 mapview(DNIT_2011_amazon_paved_filled)
 mapview(DNIT_2012_amazon_paved_filled)
-mapview(DNIT_2013_amazon_paved)
+mapview(DNIT_2013_amazon_paved_filled)
+mapview(DNIT_2014_amazon_paved_filled)
+mapview(DNIT_2015_amazon_paved_filled)
 
 #store
 for (year in years){
   df_name <- paste0("DNIT_", year, "_amazon_paved_filled", sep="")
   df <- get(df_name)
-  st_write(df, paste0("~/Desktop/doctorate/ch3 amazon network/data/DNIT_processed/DNIT_yearly_base_maps/", "DNIT_", year, "_base_map.shp", sep=""))
+  st_write(df, paste0("~/Desktop/doctorate/ch3 amazon network/data/DNIT_processed/DNIT_yearly_base_maps/", "DNIT_", year, "_base_map.shp", sep=""), append=FALSE)
 }
 
 #load
