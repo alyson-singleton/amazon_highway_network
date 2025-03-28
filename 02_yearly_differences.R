@@ -7,7 +7,7 @@ library(tidyverse)
 ##################################################
 
 years <- c(2001:2024)
-#years <- c(2015)
+years <- c(2015)
 for (year in years){
   print(year)
   DNIT_year_amazon_paved <- st_read(paste0("~/Desktop/doctorate/ch3 amazon network/data/DNIT_processed/DNIT_yearly_base_maps/", "DNIT_", year, "_base_map.shp", sep=""))
@@ -45,7 +45,8 @@ for (year in years){
   
   #remove specific 210BRR1 (old242BTO1) duplicate row in 2015
   if (year==2015){
-    DNIT_year_unions <- DNIT_year_unions[-c(first(which(DNIT_year_unions$name_section=="210BRR1"))),]
+    DNIT_year_unions <- DNIT_year_unions[-c(first(which(DNIT_year_unions$name_section=="135BMA2")),
+                                            first(which(DNIT_year_unions$name_section=="210BRR1"))),]
   }
   
   #mapview(DNIT_year_unions, zcol="name")
@@ -68,7 +69,7 @@ mapview(DNIT_2001_unions[which(DNIT_2001_unions$name=="364BAC"),])
 # difference loop between two unioned years
 
 years <- c(2001:2023)
-#years <- c(2015:2016)
+years <- c(2015:2023)
 for (year in years){
   year_index <- match(year,years)
   year_plus_one <- years[year_index+1]

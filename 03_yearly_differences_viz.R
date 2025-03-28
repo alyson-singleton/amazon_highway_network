@@ -48,7 +48,19 @@ for (year in years){
   assign(new_map_name, year_diff_map)
 }
 
-plot_panel <- ggarrange(
+DNIT_2001_unions <- st_read(paste0("~/Desktop/doctorate/ch3 amazon network/data/DNIT_processed/DNIT_unions/DNIT_2001_unions.shp"))
+just_2001_map <- ggplot() +
+  geom_sf(data = brazil_amazon_municipalities, fill='white', color='lightgrey', size=.15, show.legend = FALSE) +
+  geom_sf(data = brazil_amazon, fill=NA, color='black', size=.15, show.legend = FALSE) +
+  geom_sf(data = DNIT_2001_unions, aes(geometry = geometry), color='#ffc500', linewidth=0.8) +
+  ggtitle(2001) +
+  theme_minimal() +
+  no_axis +
+  theme(legend.text=element_text(size=12),
+        legend.title=element_text(size=14),
+        legend.position='right')
+
+plot_panel <- ggarrange(just_2001_map,
   DNIT_2001_2002_differences_map, DNIT_2002_2003_differences_map, DNIT_2003_2004_differences_map, DNIT_2004_2005_differences_map, DNIT_2005_2006_differences_map,
   DNIT_2006_2007_differences_map, DNIT_2007_2008_differences_map, DNIT_2008_2009_differences_map, DNIT_2009_2010_differences_map, DNIT_2010_2011_differences_map,
   DNIT_2011_2012_differences_map, DNIT_2012_2013_differences_map, DNIT_2013_2014_differences_map, DNIT_2014_2015_differences_map, DNIT_2015_2016_differences_map,
