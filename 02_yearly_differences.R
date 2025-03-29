@@ -50,6 +50,8 @@ for (year in years){
   }
   
   #mapview(DNIT_year_unions, zcol="name")
+  new_df_name <- paste0("DNIT_", year, "_unions", sep="")
+  assign(new_df_name, DNIT_year_unions)
   st_write(DNIT_year_unions, paste0("~/Desktop/doctorate/ch3 amazon network/data/DNIT_processed/DNIT_unions/", "DNIT_", year, "_unions.shp", sep=""),append=FALSE)
 }  
 
@@ -110,6 +112,8 @@ for (year in years){
     }
   }
   difference_geoms$geometry <- st_cast(difference_geoms$geometry, "MULTILINESTRING")
+  new_df_name <- paste0("DNIT_", year, "_", year_plus_one, "_differences", sep="")
+  assign(new_df_name, difference_geoms)
   st_write(difference_geoms, paste0("~/Desktop/doctorate/ch3 amazon network/data/DNIT_processed/DNIT_differences/DNIT_", year, "_", year_plus_one, "_differences.shp"),append=FALSE)
 }
 

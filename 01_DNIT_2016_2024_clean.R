@@ -125,8 +125,7 @@ colnames(DNIT_2024) <- set_colnames
 # reduce to paved and in the amazon
 #######################################
 
-years <- c(2013,2015:2024)
-years <- c(2013,2015)
+years <- c(2016:2024)
 for (year in years){
   print(year)
   
@@ -144,7 +143,7 @@ for (year in years){
 }
 
 #store
-years <- c(2013,2015:2024)
+years <- c(2016:2024)
 for (year in years){
   df_name <- paste0("DNIT_", year, "_amazon_paved", sep="")
   df <- get(df_name)

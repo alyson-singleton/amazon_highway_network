@@ -1,6 +1,7 @@
 library(readxl)
 library(sf)
 library(tidyverse)
+library(lwgeom)
 
 #######################################
 # load and standardize format 2001-2012
@@ -191,11 +192,13 @@ DNIT_2024 <- DNIT_2024[,c(2:3,7:12,24,16,19:20,30:33,29)]
 colnames(DNIT_2024) <- set_colnames
 
 DNIT_2024$geometry <- st_transform(st_zm(DNIT_2024$geometry), 4326)
-DNIT_2024_bool <- st_covers(brazil_amazon,DNIT_2024$geometry, sparse = FALSE)
-DNIT_2024_amazon <- DNIT_2024[DNIT_2024_bool[1,],]
-DNIT_2024_amazon_paved <- DNIT_2024_amazon[which(DNIT_2024_amazon$SUPERFICIE %in% c('PAV', 'DUP', 'EOD') | DNIT_2024_amazon$SUP_ESTADUAL %in% c('PAV', 'DUP', 'EOD')),]
+#DNIT_2024_bool <- st_covers(brazil_amazon,DNIT_2024$geometry, sparse = FALSE)
+#DNIT_2024_amazon <- DNIT_2024[DNIT_2024_bool[1,],]
+DNIT_2024_amazon_paved <- DNIT_2024_amazon %>% 
+  filter(SUPERFICIE  %in% c('PAV', 'DUP', 'EOD') | SUP_ESTADUAL %in% c('PAV', 'DUP', 'EOD')) %>%
+  filter(UF %in% c("AC", "AP", "AM", "PA", "RO", "RR", "TO", "MT", "MA"))
 
-#loop to add 2024 shapefiles to each year (2001-2012)
+ #loop to add 2024 shapefiles to each year (2001-2012)
 linestring_two_splits_function <- function(start_fraction, end_fraction, row_of_interest) {
   
   line <- row_of_interest
@@ -246,7 +249,7 @@ linestring_one_split_function <- function(start_fraction, row_of_interest) {
 
 PNV_paved_sf <- list()
 years <- 2001:2015
-years <- 2013
+#years <- 2013
 
 for (year in years){
   print(year)
@@ -538,10 +541,25 @@ for (year in years){
   st_write(df, paste0("~/Desktop/doctorate/ch3 amazon network/data/DNIT_processed/DNIT_yearly_base_maps/", "DNIT_", year, "_base_map.shp", sep=""), append=FALSE)
 }
 
-#load
-DNIT_2001_base_map <- st_read(paste0("~/Desktop/doctorate/ch3 amazon network/data/DNIT_processed/DNIT_yearly_base_maps/DNIT_", "2001", "_base_map.shp", sep=""))
-DNIT_2012_amazon_paved_filled <- st_read(paste0("~/Desktop/doctorate/ch3 amazon network/data/DNIT_processed/DNIT_yearly_base_maps/DNIT_", "2012", "_base_map.shp", sep=""))
-DNIT_2018_amazon_paved <- st_read(paste0("~/Desktop/doctorate/ch3 amazon network/data/DNIT_processed/DNIT_yearly_base_maps/DNIT_", "2018", "_base_map.shp", sep=""))
+#check missingness (filter for paved and in amazon)
+summary_df <- data.frame(year = numeric(), original = numeric(), edited = numeric(), stringsAsFactors = FALSE)
+years <- 2001:2015
+for (year in years){
+  year_index <- match(year,years)
+  df_filtered_name <- paste0("PNV_", year, sep="")
+  df_filtered <- get(df_filtered_name)
+  df_filtered <- df_filtered %>% 
+    filter(SUPERFICIE  %in% c('PAV', 'DUP', 'EOD') | SUP_ESTADUAL %in% c('PAV', 'DUP', 'EOD')) %>%
+    filter(UF %in% c("AC", "AP", "AM", "PA", "RO", "RR", "TO", "MT", "MA"))
+  
+  df_filled_name <- paste0("DNIT_", year, "_amazon_paved_filled", sep="")
+  df_filled <- get(df_filled_name)
+  
+  summary_df[year_index, ] <- list(year, dim(df_filtered)[1], table(st_is_empty(df_filled$geometry))[[1]])
+}
+
+summary_df$difference <- summary_df$original - summary_df$edited #range 57-98, maybe try changing to same filtering scheme to test (rather than amazon)
+summary_df
 
 #######################################
 # SCRATCH
